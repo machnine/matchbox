@@ -1,0 +1,73 @@
+.crf-locus {
+  border-radius: 5px;
+}
+.crf-bgcolor-a {
+  background-color: #fdd;
+}
+.crf-bgcolor-b {
+  background-color: #dff;
+}
+.crf-bgcolor-bw {
+  background-color: #eef;
+}
+.crf-bgcolor-cw {
+  background-color: #dfd;
+}
+.crf-bgcolor-dr {
+  background-color: #ffd;
+}
+.crf-bgcolor-dq {
+  background-color: #ddf;
+}
+.crf-bgcolor-dpb {
+  background-color: #fdf;
+}
+
+.metrics > div.metric,
+.metrics > button {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.metrics i {
+  color: #6c757d;
+  font-size: smaller;
+}
+
+.metrics span {
+  font-weight: bold;
+}
+
+#crf-text {
+  padding-left: 5px;
+  color: var(--bs-danger);
+}
+#mp-text {
+  padding-left: 5px;
+  color: var(--bs-primary);
+}
+#fm-text {
+  padding-left: 5px;
+  color: var(--bs-warning);
+}
+#avd-text {
+  padding-left: 5px;
+  color: var(--bs-info);
+}
+#total-text {
+  color: var(--bs-gray);
+  font-weight: lighter;
+}
+.metric-toggle > i {
+  color: var(--bs-success);
+}
+
+.xsmall {
+  font-size: smaller;
+}
+
+.list-group-item > i {
+  font-weight: bold;
+  padding-right: 5px;
+}

@@ -1,0 +1,77 @@
+<div class="offcanvas-header">
+  <h5 id="offcanvasInfoLabel"><i class="bi bi-info-square text-info"></i> cRF Calculator</h5>
+  <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+</div>
+<div class="offcanvas-body xsmall">
+  <p class="fw-bold">Calculator results display:</p>
+  <img
+    src="{{ url_for('static', path='results-display.png') }}"
+    height="28"
+    width="374"
+    class="border mb-2"
+    alt="result display image" />
+  <ul class="list-group">
+    <li class="list-group-item"><i class="text-danger">cRF</i>- calculated reaction frequency</li>
+    <li class="list-group-item"><i class="text-primary">Mb</i>- calculatedmatchability point</li>
+    <li class="list-group-item"><i class="text-warning">Fm</i>- favourable matched donors</li>
+    <li class="list-group-item"><i class="text-info">Ad</i>- available HLA compatible donors/total donors</li>
+    <li class="list-group-item"><i class="text-success">A/D</i>- all donors/donors with DP types</li>
+  </ul>
+
+  <hr />
+  <p class="fw-bold">Matchability point bands:</p>
+  <table class="table table-sm text-center table-bordered table-striped">
+    <tr>
+      <th>BG</th>
+      <th>1</th>
+      <th>2</th>
+      <th>3</th>
+      <th>4</th>
+      <th>5</th>
+      <th>6</th>
+      <th>7</th>
+      <th>8</th>
+      <th>9</th>
+      <th>10</th>
+    </tr>
+    {% for bg, val in mbands.items() %}
+    <tr>
+      <td>{{ bg }}</td>
+      <td>{{ val[1] }}</td>
+      <td>{{ val[2] }}</td>
+      <td>{{ val[3] }}</td>
+      <td>{{ val[4] }}</td>
+      <td>{{ val[5] }}</td>
+      <td>{{ val[6] }}</td>
+      <td>{{ val[7] }}</td>
+      <td>{{ val[8] }}</td>
+      <td>{{ val[9] }}</td>
+      <td>{{ val[10] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p>
+    The above table outlines matchability point (<i class="text-primary">Mp</i>) band for each blood group within the
+    ODT cRF calculator
+    <a href="https://www.odt.nhs.uk/transplantation/tools-policies-and-guidance/calculators/" target="_blank">
+      <i class="bi bi-box-arrow-up-right"></i></a
+    >. For each blood group, the bands are defined by the maximum number of favorably matched donors (<i
+      class="text-warning"
+      >Fm</i
+    >) a patient can have to fall within a specific <i class="text-primary">Mp</i> band. Each column represents a
+    distinct <i class="text-primary">Mp</i> band, with the corresponding <i class="text-warning">Fm</i> threshold
+    values.
+  </p>
+  <p><i class="text-muted">NB: The banding is subject to change as the calculator is updated.</i></p>
+  <hr />
+  <p class="fw-bold">HLA type for matchability calculation:</p>
+  <p>
+    Matchability estimates how many level 1 or 2 mismatched, ABO-identical and HLA-compatible donors (a.k.a. favourably
+    matched donors, <i class="text-warning">Fm</i>) are available for a patient within the 10,000 donor cohort. The
+    calculation is based on <b>'broad'</b> HLA specificities and only HLA-B and DRB1 types are required to determine the
+    matching levels.
+  </p>
+  <p>
+    <i class="text-muted">Level 1 - 000, Level 2 - [0 DR and 0/1 B] or [1 DR and 0 B] (which also include Level 1)</i>.
+  </p>
+</div>

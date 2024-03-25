@@ -1,0 +1,10 @@
+[project]
+name = "MatchBox"
+description = "A web app version of the ODT cRF calculator"
+readme = "README.md"
+license = "MIT"
+dynamic = ["version"]
+
+[tool.ruff]
+line-length = 120
+extend-select = ["I"]
