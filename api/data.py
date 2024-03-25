@@ -20,9 +20,6 @@ class DataLoader:
 
     def __init__(self, db_path: str = None, table_name: str = None, matchability_ver: int = None):
         self.db_path = db_path or "data/donors.db"
-        if not self._database_exists(self.db_path):
-            logger.error("Database file %s not found", db_path)
-            raise FileNotFoundError(f"Database file {self.db_path} not found")
         self.conn = sqlite3.connect(self.db_path)
         self.table_name = table_name or "donors_v3"
         self.matchability_ver = matchability_ver or 4
