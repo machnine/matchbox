@@ -1,6 +1,5 @@
 """the calculator"""
 
-from datetime import datetime
 from typing import Dict, List, Optional, Set
 
 from pandas import DataFrame, Series

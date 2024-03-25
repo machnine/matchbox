@@ -1,8 +1,7 @@
 """routes"""
 
-import json
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse

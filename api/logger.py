@@ -4,44 +4,46 @@ import logging
 from pathlib import Path
 
 
-def logging_setup():
-    """setup logging"""
-    log_dir_name = "logs"
-    access_log_file = "access.log"
-    error_log_file = "error.log"
-    _, access_log, error_log = check_and_create_logs(log_dir_name, access_log_file, error_log_file)
-    get_logger(access_log, log_source="uvicorn.access")
-    get_logger(error_log, log_level=logging.ERROR)
+class LogManager:
+    """Logging manager"""
+
+    def __init__(self, log_dir_name="logs"):
+        self.log_dir_name = log_dir_name
+        self.log_dir = Path(self.log_dir_name)
+        self.access_log_file = "access.log"
+        self.error_log_file = "error.log"
+        self.setup_directory()
+        self.setup_log_files()
+
+    def setup_directory(self):
+        """Create log directory if it doesn't exist."""
+        if not self.log_dir.exists():
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+
+    def setup_log_files(self):
+        """Create log files if they don't exist."""
+        for log_file in [self.access_log_file, self.error_log_file]:
+            file_path = self.log_dir / log_file
+            if not file_path.exists():
+                file_path.touch()
+
+    def get_logger(self, file_name, log_source=None, log_level=logging.INFO):
+        """Get logger configured with file handler and formatter."""
+        log_file_path = self.log_dir / file_name
+        logger = logging.getLogger(log_source) if log_source else logging.getLogger()
+        logger.setLevel(log_level)
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+        file_handler = logging.FileHandler(log_file_path)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+        return logger
+
+    def setup_application_logging(self):
+        """set up application wide logging"""
+        self.get_logger(self.access_log_file, log_source="uvicorn.access")
+        self.get_logger(self.error_log_file, log_level=logging.ERROR)
 
 
-def get_logger(
-    log_filename: str,
-    log_source: str = None,
-    log_level: int = logging.INFO,
-):
-    """get logger"""
-    logger = logging.getLogger(log_source) if log_source else logging.getLogger()
-    logger.setLevel(log_level)
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    file_handler = logging.FileHandler(log_filename)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    return logger
-
-
-def check_and_create_logs(log_dir_name: str, access_log_file: str, error_log_file: str):
-    """check and create logs directory"""
-    log_dir = Path(log_dir_name)
-    access_log = log_dir / access_log_file
-    error_log = log_dir / error_log_file
-
-    if not log_dir.exists():
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-    if not access_log.exists():
-        access_log.touch()
-
-    if not error_log.exists():
-        error_log.touch()
-
-    return log_dir, access_log, error_log
+log_manager = LogManager()

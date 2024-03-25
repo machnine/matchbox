@@ -4,31 +4,47 @@ import re
 import sqlite3
 import warnings
 from collections import defaultdict
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 from pydantic import BaseModel
 
+from .logger import log_manager
+
+logger = log_manager.get_logger("error.log", log_source="data.py")
+
 
 class DataLoader:
     """load data into memory"""
 
-    def __init__(self, db_path: str = "data/donors.db", table_name: str = "donors_v3", matchability_ver: int = 4):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None, table_name: str = None, matchability_ver: int = None):
+        self.db_path = db_path or "data/donors.db"
+        if not self._database_exists(self.db_path):
+            logger.error("Database file %s not found", db_path)
+            raise FileNotFoundError(f"Database file {self.db_path} not found")
         self.conn = sqlite3.connect(self.db_path)
-        self.table_name = table_name
-        self.matchability_ver = matchability_ver
+        self.table_name = table_name or "donors_v3"
+        self.matchability_ver = matchability_ver or 4
         self.donors = self._load_donors()
+
+    def _database_exists(self, db_file: str) -> bool:
+        """check if database exists"""
+        return True if Path(db_file).is_file() else False
 
     def _load_table(self, table_name: str, conditions: str = "") -> pd.DataFrame:
         """load a table from sqlite database"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            df = pd.read_sql_query(f"SELECT * FROM {table_name} {conditions}", self.conn)
-        # convert numeric columns to int (i.e. for matchability bands)
-        rename_dict = {col: int(col) if col.isdigit() else col for col in df.columns}
-        df.rename(columns=rename_dict, inplace=True)
-        df.flags.writeable = False  # Make the DataFrame immutable
+            try:
+                df = pd.read_sql_query(f"SELECT * FROM {table_name} {conditions}", self.conn)
+                # convert numeric columns to int (i.e. for matchability bands)
+                rename_dict = {col: int(col) if col.isdigit() else col for col in df.columns}
+                df.rename(columns=rename_dict, inplace=True)
+                df.flags.writeable = False  # Make the DataFrame immutable
+            except (sqlite3.Error, ValueError) as e:
+                logger.error("Error loading table %s: %s", table_name, e)
+                df = pd.DataFrame()
         return df
 
     def _get_locus(self, antigen: str) -> str:
