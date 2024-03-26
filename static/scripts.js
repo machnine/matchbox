@@ -34,7 +34,7 @@ var calculate = (antigenList) => {
   $.get(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}`, function (data) {
     $("#crf-text").html((data.results.crf * 100).toFixed(2) + "%");
     $("#avd-text").html(data.results.available);
-    $("#total-text").html(data.total);
+    $("#id_dp-toggle").attr("title", `Total donors: ${data.total}`);
     $("#mp-text").html(data.results.matchability);
     $("#fm-text").html(data.results.favourable);
   }).fail(function (xhr, status, error) {

@@ -6,16 +6,17 @@
   <p class="fw-bold">Calculator results display:</p>
   <img
     src="{{ url_for('static', path='results-display.png') }}"
-    height="28"
-    width="374"
-    class="border mb-2"
+    height="30"
+    width="330"
+    class="mb-2"
     alt="result display image" />
   <ul class="list-group">
     <li class="list-group-item"><i class="text-danger">cRF</i>- calculated reaction frequency</li>
     <li class="list-group-item"><i class="text-primary">Mb</i>- calculatedmatchability point</li>
     <li class="list-group-item"><i class="text-warning">Fm</i>- favourable matched donors</li>
     <li class="list-group-item"><i class="text-info">Ad</i>- available HLA compatible donors/total donors</li>
-    <li class="list-group-item"><i class="text-success">A/D</i>- all donors/donors with DP types</li>
+    <li class="list-group-item"><i class="text-success bi bi-toggle2-on">A</i> all 10,000 donors</li>
+    <li class="list-group-item"><i class="text-success bi bi-toggle2-off">D</i> only donors with HLA-DPB1 types</li>
   </ul>
 
   <hr />
@@ -72,6 +73,6 @@
     matching levels.
   </p>
   <p>
-    <i class="text-muted">Level 1 - 000, Level 2 - [0 DR and 0/1 B] or [1 DR and 0 B] (which also includes Level 1)</i>.
+    <i class="text-muted">Level 1 - 000 <br />Level 2 - [0 DR and 0/1 B] or [1 DR and 0 B]</i>
   </p>
 </div>
