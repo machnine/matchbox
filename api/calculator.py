@@ -54,7 +54,7 @@ class Calculator:
         return self.donors[~has_dsa], self.donors[has_dsa]
 
     def _get_donor_types(self) -> DataFrame:
-        """get the HLA compatibel donors' HLA types (no dsa): return the column name if the value is 1"""
+        """get the HLA compatible donors' HLA types (no dsa): return the column name if the value is 1"""
         # if there is no compatible donor, return empty data frame
         if self.compatible_donors.empty:
             return DataFrame(columns=["B", "DR"])

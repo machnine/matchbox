@@ -41,18 +41,20 @@ async def calc(
     for hla in recip_hla_list:
         recip_hla_dict["B" if hla.startswith("B") else "DR"].add(hla)
 
-    if not specs:
-        # default results
-        results = {"crf": 0, "available": available, "matchability": 0, "favourable": 0}
-    else:
-        calculator = Calculator(
-            donors=data.donors[donor_set],
-            specs=specs.split(","),
-            abo=bg,
-            recipient_bdr=recip_hla_dict,
-            hla_bdr=data.mantigens,
-            ag_defaults=data.antigen_defaults,
-            matchability_bands=data.mbands,
-        )
-        results = calculator.calculate()
+    # if not specs:
+    #     # default results
+    #     results = {"crf": 0, "available": available, "matchability": 0, "favourable": 0}
+    # else:
+    specs = [] if not specs else specs.split(",")
+
+    calculator = Calculator(
+        donors=data.donors[donor_set],
+        specs=specs,
+        abo=bg,
+        recipient_bdr=recip_hla_dict,
+        hla_bdr=data.mantigens,
+        ag_defaults=data.antigen_defaults,
+        matchability_bands=data.mbands,
+    )
+    results = calculator.calculate()
     return {"bg": bg, "specs": specs, "results": results, "total": total, "recip_hla": recip_hla}

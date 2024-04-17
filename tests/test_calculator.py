@@ -6,11 +6,14 @@ from api.calculator import Calculator, Results
 
 # load mock donors once
 mock_donors = pd.read_csv("tests/mock_donors.csv")
+# antigen default setting
 mock_ag_defaults = {"B42": "B7", "DR9": "DR4"}
+# mock matchability bands
 mock_mbands = {
     "A": {1: 35, 2: 30, 3: 25, 4: 20, 5: 15, 6: 10, 7: 5, 8: 2, 9: 1, 10: 0},
     "O": {1: 45, 2: 35, 3: 30, 4: 25, 5: 20, 6: 15, 7: 10, 8: 5, 9: 2, 10: 1},
 }
+# a list of antigens 'allowed' for using in matchability calculation
 mock_mantigens = {"B": ["B7", "B8", "B12", "B42", "B46"], "DR": ["DR3", "DR9"]}
 
 
@@ -148,4 +151,20 @@ def test_calculator_minial_input():
     """test the calculator with minimal input"""
     results = Calculator(donors=mock_donors, abo="O", specs=[]).calculate()
     expected_results = Results(crf=0.0, available=49, favourable=None, matchability=None)
+    assert results == expected_results
+
+
+def test_calculator_no_specs():
+    """test the calculator with no specs"""
+    mock_patient = {"B": {"B7", "B46"}, "DR": {"DR4", "DR3"}}
+    results = Calculator(
+        donors=mock_donors,
+        abo="O",
+        specs=[],
+        ag_defaults=mock_ag_defaults,
+        matchability_bands=mock_mbands,
+        hla_bdr=mock_mantigens,
+        recipient_bdr=mock_patient,
+    ).calculate()
+    expected_results = Results(crf=0.0, available=49, favourable=45, matchability=1)
     assert results == expected_results
