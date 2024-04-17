@@ -48,8 +48,8 @@ def test_calc_get_endpoint():
     assert response.status_code == 200
     assert results["crf"] == 0
     assert results["available"] == 39
-    assert results["matchability"] == 0
-    assert results["favourable"] == 0
+    assert results["matchability"] is None
+    assert results["favourable"] is None
 
     # test with a blood group and a spec
     response = endpoint({"bg": "B", "specs": "A43,B7,B8,DR17,DR3"})
