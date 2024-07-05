@@ -55,3 +55,27 @@ This app has one GET endpoint */calc/* which accepts the following queries:
 - **specs**: antibody specs e.g. "A1,B2,DR1"
 - **donor_set**: all donors [0, default] or only donors with HLA-DPB1 types [1]
 - **recip_hla**: recipient HLA-B and DR type (broad) e.g. "B7,B8,DR9"
+
+## Google Analytics
+To use Google Analytics, create a gatag.js file:
+```javascript
+(function () {
+  var script = document.createElement("script");
+  script.src = "https://www.googletagmanager.com/gtag/js?id=[YOUR_TAG_ID]";
+  script.async = true;
+  document.head.appendChild(script);
+
+  script.onload = function () {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag("js", new Date());
+    gtag("config", "[YOUR_TAG_ID]");
+  };
+})();
+```
+After the container is up, copy this file into the container:
+```bash
+docker cp gatag.js YOUR_CONTAINER_ID:/app/static/gatag.js
+```
