@@ -2,7 +2,9 @@
 *.pyc
 env
 
-
+activate.sh
+activate.ps1
+activate.bat
 __pycache__/
 .dev/
 .pytest_cache/
@@ -11,4 +13,4 @@ __pycache__/
 env/
 logs/
 venv/
-
+gatag.js

@@ -5,5 +5,5 @@
 .git/
 __pycache__/
 logs/
-
+static/gatag.js
 *.log

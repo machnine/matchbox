@@ -8,12 +8,28 @@
     <link href="{{ url_for('static', path='style.css') }}" rel="stylesheet" />
     <link id="favicon" rel="icon" href="{{ url_for('static', path='favicon.ico') }}" type="image/x-icon" />
     <title>cRF Calculator</title>
+    <script>
+      // optionally load gtag.js if it exists
+      (function () {
+        var http = new XMLHttpRequest();
+        http.open("HEAD", "{{ url_for('static', path='gatag.js')}}", false);
+        http.send();
+        if (http.status != 404) {
+          var script = document.createElement("script");
+          script.src = "{{ url_for('static', path='gatag.js')}}";
+          document.head.appendChild(script);
+        }
+      })();
+    </script>
   </head>
   <body class="container-fluid">
     <header
       class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 px-3 mx-auto d-flex align-items-center justify-content-between fixed-top border-bottom bg-white">
       <div class="fs-3">
-        <a href="/" class="nav-link"><i class="bi bi-calculator text-success"></i><span class="text-secondary d-none d-sm-inline-block">cRF Calculator</span></a>
+        <a href="/" class="nav-link"
+          ><i class="bi bi-calculator text-success"></i
+          ><span class="text-secondary d-none d-sm-inline-block">cRF Calculator</span></a
+        >
       </div>
       <div class="d-flex align-items-center justify-content-between metrics">
         <div class="metric" title="calculated reaction frequency">
