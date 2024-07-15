@@ -63,16 +63,58 @@
     distinct <i class="text-primary">Mp</i> band, with the corresponding <i class="text-warning">Fm</i> threshold
     values.
   </p>
-  <p><i class="text-muted">NB: The banding is subject to change as the calculator is updated.</i></p>
+  <p>
+    <i class="text-muted"
+      >NB: The banding is subject to change as the calculator is updated by NHSBT-ODT. There is no set schedule.</i
+    >
+  </p>
   <hr />
   <p class="fw-bold">HLA type for matchability calculation:</p>
   <p>
-    Matchability estimates how many level 1 or 2 mismatched, ABO-identical and HLA-compatible donors (a.k.a. favourably
-    matched donors, <i class="text-warning">Fm</i>) are available for a patient within the 10,000 donor cohort. The
-    calculation is based on <b>'broad'</b> HLA specificities and only HLA-B and DRB1 types are required to determine the
-    matching levels.
+    Matchability estimates how many levels 1 and 2 mismatched, ABO-identical, and HLA-compatible donors (a.k.a.
+    favourably matched donors, <i class="text-warning">Fm</i>) are available for a patient within the 10,000 donor
+    cohort.
   </p>
   <p>
-    <i class="text-muted">Level 1 - 000 <br />Level 2 - [0 DR and 0/1 B] or [1 DR and 0 B]</i>
+    The calculation is based on <b>broad</b> HLA specificities. For determining favourable matches (levels 1 and 2),
+    only HLA-B and DRB1 are needed: HLA-A does not affect this categorisation.
   </p>
+  <table class="table table-sm text-center table-bordered table-striped">
+    <tr>
+      <th colspan="3" class="text-center">HLA mismatch levels for HLA-A, B and DR</th>
+    </tr>
+    <tr>
+      <th>Level</th>
+      <th>Summary</th>
+      <th>Combinations included</th>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>000</td>
+      <td>000</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>[0 DR and 0/1 B] or [1 DR and 0 B]</td>
+      <td>100, 010, 110, 200, 210, 001, 101, 201</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>[0 DR and 2 B] or [1 DR and 1 B]</td>
+      <td>020, 120, 220, 011, 111, 211</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>[1 DR and 2 B] or [2 DR]</td>
+      <td>021, 121, 221, 002, 102, 202, 012, 112, 212, 022, 122, 222</td>
+    </tr>
+  </table>
+  <i>
+    Ref:
+    <a
+      href="https://nhsbtdbe.blob.core.windows.net/umbraco-assets-corp/26155/pol18612-kidney-allocation-policy.pdf"
+      target="_blank">
+      NHSBT-ODT POL186/12 (page 8)
+    </a>
+  </i>
 </div>
