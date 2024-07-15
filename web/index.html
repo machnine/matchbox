@@ -8,18 +8,15 @@
     <link href="{{ url_for('static', path='style.css') }}" rel="stylesheet" />
     <link id="favicon" rel="icon" href="{{ url_for('static', path='favicon.ico') }}" type="image/x-icon" />
     <title>cRF Calculator</title>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ tracking_id }}"></script>
     <script>
-      // optionally load gtag.js if it exists
-      (function () {
-        var http = new XMLHttpRequest();
-        http.open("HEAD", "{{ url_for('static', path='gatag.js')}}", false);
-        http.send();
-        if (http.status != 404) {
-          var script = document.createElement("script");
-          script.src = "{{ url_for('static', path='gatag.js')}}";
-          document.head.appendChild(script);
-        }
-      })();
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "{{ tracking_id }}");
     </script>
   </head>
   <body class="container-fluid">

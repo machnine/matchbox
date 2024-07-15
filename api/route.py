@@ -1,5 +1,6 @@
 """routes"""
 
+import os
 from collections import defaultdict
 from typing import Optional
 
@@ -18,7 +19,14 @@ templates = Jinja2Templates(directory="web")
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request, data=Depends(load_data)):
     """index page"""
-    context = {"request": request, "antigens": data.antigens, "mantigens": data.mantigens, "mbands": data.mbands}
+    tracking_id = os.getenv("GOOGLE_ANALYTICS_TRACKING_ID")
+    context = {
+        "request": request,
+        "antigens": data.antigens,
+        "mantigens": data.mantigens,
+        "mbands": data.mbands,
+        "tracking_id": tracking_id,
+    }
     return templates.TemplateResponse("index.html", context)
 
 
