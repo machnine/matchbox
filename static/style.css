@@ -1,3 +1,6 @@
+body {
+  font-size: 1rem;
+}
 .crf-locus {
   border-radius: 5px;
 }
@@ -70,4 +73,11 @@
 .list-group-item > i {
   font-weight: bold;
   padding-right: 5px;
+}
+
+/* make text smaller in smaller screens */
+@media (max-width: 1024px) {
+  body {
+    font-size: 0.8rem;
+  }
 }
