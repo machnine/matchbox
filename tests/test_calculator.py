@@ -79,7 +79,13 @@ def test_calculator_full_a_one_spec():
         hla_bdr=mock_mantigens,
         recipient_bdr=mock_patient,
     ).calculate()
-    expected_results = Results(crf=0.5128205128205128, available=19, favourable=19, matchability=5)
+    expected_results = Results(
+        crf=0.5128205128205128,
+        available=19,
+        favourable=19,
+        matchability=5,
+        match_counts={"fav": 19, "m12a": 19, "m2b": 0, "m3a": 0, "m3b": 0, "m4a": 0, "m4b": 0},
+    )
     assert results == expected_results
 
 
@@ -95,7 +101,13 @@ def test_calculator_full_a_multi_spec():
         hla_bdr=mock_mantigens,
         recipient_bdr=mock_patient,
     ).calculate()
-    expected_results = Results(crf=0.28205128205128205, available=28, favourable=28, matchability=3)
+    expected_results = Results(
+        crf=0.28205128205128205,
+        available=28,
+        favourable=28,
+        matchability=3,
+        match_counts={"fav": 28, "m12a": 28, "m2b": 0, "m3a": 0, "m3b": 0, "m4a": 0, "m4b": 0},
+    )
     assert results == expected_results
 
 
@@ -111,7 +123,13 @@ def test_calculator_full_o_multi_spec():
         hla_bdr=mock_mantigens,
         recipient_bdr=mock_patient,
     ).calculate()
-    expected_results = Results(crf=0.7959183673469388, available=10, favourable=10, matchability=7)
+    expected_results = Results(
+        crf=0.7959183673469388,
+        available=10,
+        favourable=10,
+        matchability=7,
+        match_counts={"fav": 10, "m12a": 10, "m2b": 0, "m3a": 0, "m3b": 0, "m4a": 0, "m4b": 0},
+    )
     assert results == expected_results
 
 
@@ -137,8 +155,20 @@ def test_calculator_full_default_antigens():
         hla_bdr=mock_mantigens,
         recipient_bdr=mock_patient2,
     ).calculate()
-    expected_results1 = Results(crf=0.7959183673469388, available=10, favourable=9, matchability=8)
-    expected_results2 = Results(crf=0.7959183673469388, available=10, favourable=10, matchability=7)
+    expected_results1 = Results(
+        crf=0.7959183673469388,
+        available=10,
+        favourable=9,
+        matchability=8,
+        match_counts={"fav": 9, "m12a": 9, "m2b": 0, "m3a": 0, "m3b": 1, "m4a": 0, "m4b": 0},
+    )
+    expected_results2 = Results(
+        crf=0.7959183673469388,
+        available=10,
+        favourable=10,
+        matchability=7,
+        match_counts={"fav": 10, "m12a": 10, "m2b": 0, "m3a": 0, "m3b": 0, "m4a": 0, "m4b": 0},
+    )
     assert results1 == expected_results1
     assert results2 == expected_results2
     assert results1.crf == results2.crf
@@ -166,5 +196,11 @@ def test_calculator_no_specs():
         hla_bdr=mock_mantigens,
         recipient_bdr=mock_patient,
     ).calculate()
-    expected_results = Results(crf=0.0, available=49, favourable=45, matchability=1)
+    expected_results = Results(
+        crf=0.0,
+        available=49,
+        favourable=45,
+        matchability=1,
+        match_counts={"fav": 45, "m12a": 45, "m2b": 0, "m3a": 3, "m3b": 1, "m4a": 0, "m4b": 0},
+    )
     assert results == expected_results
