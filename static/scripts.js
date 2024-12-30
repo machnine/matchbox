@@ -40,12 +40,13 @@ var calculate = (antigenList) => {
 
     if (data.results.match_counts) {
       mc = data.results.match_counts;
-      $("#m12a").html(mc.m12a);
-      $("#m2b").html(mc.m2b);
-      $("#m3a").html(mc.m3a);
-      $("#m3b").html(mc.m3b);
-      $("#m4a").html(mc.m4a);
-      $("#m4b").html(mc.m4b);
+      convRatio = data.total / 10000; // convert DP only donor calcs to 10k donor scale
+      $("#m12a").html(Math.round(mc.m12a / convRatio));
+      $("#m2b").html(Math.round(mc.m2b / convRatio));
+      $("#m3a").html(Math.round(mc.m3a / convRatio));
+      $("#m3b").html(Math.round(mc.m3b / convRatio));
+      $("#m4a").html(Math.round(mc.m4a / convRatio));
+      $("#m4b").html(Math.round(mc.m4b / convRatio));
     }
   }).fail(function (xhr, status, error) {
     console.error(xhr.responseText);
