@@ -43,16 +43,10 @@ async def calc(
     """calculate matchability"""
     donors = data.donors[donor_set]
     total = len(donors)
-    available = len(donors[donors.bg == bg])
     recip_hla_list = recip_hla.split(",") if recip_hla else []
     recip_hla_dict = defaultdict(set)
     for hla in recip_hla_list:
         recip_hla_dict["B" if hla.startswith("B") else "DR"].add(hla)
-
-    # if not specs:
-    #     # default results
-    #     results = {"crf": 0, "available": available, "matchability": 0, "favourable": 0}
-    # else:
     specs = [] if not specs else specs.split(",")
 
     calculator = Calculator(

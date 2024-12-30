@@ -13,6 +13,7 @@ class Results(BaseModel):
     available: Optional[int] = None
     favourable: Optional[int] = None
     matchability: Optional[int] = None
+    match_counts: Optional[Dict[str, int]] = None
 
 
 class Calculator:
@@ -42,10 +43,15 @@ class Calculator:
         # calculate crf
         crf = len(self.incompatible_donors) / len(self.donors)
         # calculate matchability
-        fav_matched = self._get_favourable_count()
+        match_counts = self._get_matching_level_count()
+        fav_matched = match_counts["fav"] if match_counts else None
         matchability = self._calculate_matchability(fav_matched) if fav_matched is not None else None
         return Results(
-            crf=crf, available=len(self.compatible_donors), favourable=fav_matched, matchability=matchability
+            crf=crf,
+            available=len(self.compatible_donors),
+            favourable=fav_matched,
+            matchability=matchability,
+            match_counts=match_counts,
         )
 
     def _get_donors(self) -> List[DataFrame]:
@@ -75,8 +81,8 @@ class Calculator:
         # return the number of antigen matched
         return dtypes[locus].apply(lambda d: len(d.difference(recipient_bdr)))
 
-    def _get_favourable_count(self) -> Optional[int]:
-        """calculate matchability"""
+    def _get_matching_level_count(self) -> Optional[Dict[str, int]]:
+        """calculate matching level count"""
         if self.recipient_bdr:
             donor_types = self._get_donor_types()
             b_match = self._get_matching(donor_types, "B")
@@ -84,14 +90,21 @@ class Calculator:
             # work out the matching grades
             matchings = DataFrame({"B": b_match, "DR": dr_match})
 
-            # calculate the matchability
-            # 'favorable' matchings:
-            # 0 DR mismatch and 0-1 B mismatch or 1 DR mismatch and 0 B mismatch
-            fav_matched = matchings.apply(
-                lambda row: (row.DR == 0 and row.B < 2) or (row.DR == 1 and row.B == 0), axis=1
-            ).sum()
+            def count_matches(dr_val, b_cond):
+                # helper function to count matches
+                if callable(b_cond):
+                    return matchings.apply(lambda row: row.DR == dr_val and b_cond(row.B), axis=1).sum()
+                return matchings.apply(lambda row: row.DR == dr_val and row.B == b_cond, axis=1).sum()
 
-            return fav_matched
+            # 'favorable' matchings:
+            m12a = count_matches(0, lambda x: x < 2)  # 000 or 0DR, 0/1B
+            m2b = count_matches(1, 0)  # 1DR, 0B
+            m3a = count_matches(0, 2)  # 0DR, 2B
+            m3b = count_matches(1, 1)  # 1DR, 1B
+            m4a = count_matches(1, 2)  # 1DR, 2B
+            m4b = count_matches(2, lambda x: True)  # 2DR
+
+            return {"fav": m12a + m2b, "m12a": m12a, "m2b": m2b, "m3a": m3a, "m3b": m3b, "m4a": m4a, "m4b": m4b}
         return None
 
     def _calculate_matchability(self, fav_matched: int) -> int:

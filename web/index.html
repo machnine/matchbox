@@ -111,13 +111,17 @@
         <a data-bs-toggle="offcanvas" data-bs-target="#offcanvasHelp" class="btn">
           <i class="bi bi-question-square text-danger"></i> How To
         </a>
+        <a data-bs-toggle="offcanvas" data-bs-target="#offcanvasMatchCount" class="btn">
+          <i class="bi bi-person-bounding-box text-success"></i> Match Counts
+        </a>
       </div>
     </footer>
-    <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasInfo" aria-labelledby="offcanvasInfoLabel">
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasInfo">
       {% include 'offcanvas-start-parts.html' %}
     </div>
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasHelp" aria-labelledby="offcanvasInfoLabel">
-      {% include 'offcanvas-end-parts.html' %}
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasHelp">{% include 'offcanvas-end-parts.html' %}</div>
+    <div class="offcanvas offcanvas-bottom" tabindex="-1" id="offcanvasMatchCount">
+      {% include 'offcanvas-bottom-parts.html' %}
     </div>
     <script src="{{ url_for('static', path='jquery-3.7.1.min.js') }}"></script>
     <script src="{{ url_for('static', path='bootstrap-5.2.3.bundle.min.js') }}"></script>

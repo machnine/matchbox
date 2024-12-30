@@ -37,6 +37,16 @@ var calculate = (antigenList) => {
     $("#id_dp-toggle").attr("title", `Total donors: ${data.total}`);
     $("#mp-text").html(data.results.matchability);
     $("#fm-text").html(data.results.favourable);
+
+    if (data.results.match_counts) {
+      mc = data.results.match_counts;
+      $("#m12a").html(mc.m12a);
+      $("#m2b").html(mc.m2b);
+      $("#m3a").html(mc.m3a);
+      $("#m3b").html(mc.m3b);
+      $("#m4a").html(mc.m4a);
+      $("#m4b").html(mc.m4b);
+    }
   }).fail(function (xhr, status, error) {
     console.error(xhr.responseText);
   });
