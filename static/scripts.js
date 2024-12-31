@@ -1,84 +1,103 @@
-$(document).ready(function () {
+document.addEventListener("DOMContentLoaded", () => {
   recalculate();
 });
 
-var toggleOnIcon = "bi-toggle2-on";
-var toggleOffIcon = "bi-toggle2-off";
+const toggleOnIcon = "bi-toggle2-on";
+const toggleOffIcon = "bi-toggle2-off";
 
 // recalculate the cRF, Mb, and AvD
-var recalculate = () => {
-  var antigenList = getSelectedAntigens();
+const recalculate = () => {
+  const antigenList = getSelectedAntigens();
   calculate(antigenList);
 };
 
 //watch all the antigen checkboxes for changes
-var AntigenCheckBoxes = $(".antigen-checkbox");
-AntigenCheckBoxes.change(recalculate);
-var getSelectedAntigens = () => {
-  return AntigenCheckBoxes.filter(":checked")
-    .map(function () {
-      return this.value;
-    })
-    .get();
+const AntigenCheckBoxes = document.querySelectorAll(".antigen-checkbox");
+AntigenCheckBoxes.forEach((checkbox) => {
+  checkbox.addEventListener("change", recalculate);
+});
+
+const getSelectedAntigens = () => {
+  return Array.from(AntigenCheckBoxes)
+    .filter((checkbox) => checkbox.checked)
+    .map((checkbox) => checkbox.value);
 };
 
-var calculate = (antigenList) => {
-  var bg = $("input[name='abo']:checked").val();
-  var dp = $("#id_dp-toggle i small").html() == "A" ? 0 : 1;
-  var recip_hla = $(".recip-hla-select")
-    .map(function () {
-      if (this.value) return this.value;
-    })
-    .get();
-  var specs = antigenList.join(",");
-  $.get(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}`, function (data) {
-    $("#crf-text").html((data.results.crf * 100).toFixed(2) + "%");
-    $("#avd-text").html(data.results.available);
-    $("#id_dp-toggle").attr("title", `Total donors: ${data.total}`);
-    $("#mp-text").html(data.results.matchability);
-    $("#fm-text").html(data.results.favourable);
+const calculate = (antigenList) => {
+  const bg = document.querySelector("input[name='abo']:checked").value;
+  const dpToggle = document.getElementById("id_dp-toggle");
+  const dp = dpToggle.querySelector("i small").textContent === "A" ? 0 : 1;
+  const recipHlaSelects = document.querySelectorAll(".recip-hla-select");
+  const recip_hla = Array.from(recipHlaSelects)
+    .map((select) => select.value)
+    .filter((value) => value);
+  const specs = antigenList.join(",");
 
-    if (data.results.match_counts) {
-      mc = data.results.match_counts;
-      convRatio = data.total / 10000; // convert DP only donor calcs to 10k donor scale
-      $("#m12a").html(Math.round(mc.m12a / convRatio));
-      $("#m2b").html(Math.round(mc.m2b / convRatio));
-      $("#m3a").html(Math.round(mc.m3a / convRatio));
-      $("#m3b").html(Math.round(mc.m3b / convRatio));
-      $("#m4a").html(Math.round(mc.m4a / convRatio));
-      $("#m4b").html(Math.round(mc.m4b / convRatio));
-    }
-  }).fail(function (xhr, status, error) {
-    console.error(xhr.responseText);
-  });
+  fetch(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}`)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      document.getElementById("crf-text").textContent = (data.results.crf * 100).toFixed(2) + "%";
+      document.getElementById("avd-text").textContent = data.results.available;
+      document.getElementById("id_dp-toggle").title = `Total donors: ${data.total}`;
+      document.getElementById("mp-text").textContent = data.results.matchability;
+      document.getElementById("fm-text").textContent = data.results.favourable;
+
+      if (data.results.match_counts) {
+        const mc = data.results.match_counts;
+        const convRatio = data.total / 10000; // convert DP only donor calcs to 10k donor scale
+        document.getElementById("m12a").textContent = Math.round(mc.m12a / convRatio);
+        document.getElementById("m2b").textContent = Math.round(mc.m2b / convRatio);
+        document.getElementById("m3a").textContent = Math.round(mc.m3a / convRatio);
+        document.getElementById("m3b").textContent = Math.round(mc.m3b / convRatio);
+        document.getElementById("m4a").textContent = Math.round(mc.m4a / convRatio);
+        document.getElementById("m4b").textContent = Math.round(mc.m4b / convRatio);
+      }
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 };
 
 // toggle all antigens by locus
-var LocusNames = $(".crf-locus-name");
-
-LocusNames.click(function () {
-  var locus = this.id.split("-")[1];
-  toggleAntigensByLocus(locus);
+const LocusNames = document.querySelectorAll(".crf-locus-name");
+LocusNames.forEach((locusName) => {
+  locusName.addEventListener("click", function () {
+    const locus = this.id.split("-")[1];
+    toggleAntigensByLocus(locus);
+  });
 });
 
-var toggleAntigensByLocus = (locus) => {
-  var antigenCheckboxes = $(".antigen-" + locus);
-  var targetCheckedState = !antigenCheckboxes.first().prop("checked");
-  antigenCheckboxes.prop("checked", targetCheckedState);
+const toggleAntigensByLocus = (locus) => {
+  const antigenCheckboxes = document.querySelectorAll(".antigen-" + locus);
+  const targetCheckedState = !antigenCheckboxes[0].checked;
+  antigenCheckboxes.forEach((checkbox) => (checkbox.checked = targetCheckedState));
   recalculate();
 };
 
 // blood group selection
-$("input[name='abo']").change(recalculate);
+const aboInputs = document.querySelectorAll("input[name='abo']");
+aboInputs.forEach((aboInput) => {
+  aboInput.addEventListener("change", recalculate);
+});
 
 // toggle donors with/without DP types
-$("#id_dp-toggle").click(function () {
-  var toggleIcon = $(this).find("i");
-  toggleIcon.toggleClass(`${toggleOnIcon} ${toggleOffIcon}`);
-  toggleIcon.find("small").html(toggleIcon.hasClass(toggleOnIcon) ? "A" : "D");
-  $(".toggle-hide").toggleClass("d-none");
+const dpToggle = document.getElementById("id_dp-toggle");
+dpToggle.addEventListener("click", function () {
+  const toggleIcon = this.querySelector("i");
+  toggleIcon.classList.toggle(toggleOnIcon);
+  toggleIcon.classList.toggle(toggleOffIcon);
+  toggleIcon.querySelector("small").textContent = toggleIcon.classList.contains(toggleOnIcon) ? "A" : "D";
+  document.querySelectorAll(".toggle-hide").forEach((el) => el.classList.toggle("d-none"));
   recalculate();
 });
 
 // recipient type change
-$(".recip-hla-select").change(recalculate);
+const recipHlaSelects = document.querySelectorAll(".recip-hla-select");
+recipHlaSelects.forEach((select) => {
+  select.addEventListener("change", recalculate);
+});
