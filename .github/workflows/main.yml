@@ -34,6 +34,7 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/${{ github.repository }}:latest
+          no-cache: true
 
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@master
