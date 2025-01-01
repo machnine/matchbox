@@ -1,5 +1,5 @@
 [project]
-name = "MatchBox"
+name = "matchbox"
 description = "A web app version of the ODT cRF calculator"
 readme = "README.md"
 license = "MIT"

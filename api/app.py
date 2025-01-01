@@ -14,7 +14,7 @@ from .route import router
 
 def create_app():
     """API app loader"""
-    this_app = FastAPI(title="MatchBox", version="1.0", description="cRF/Matchability calculator API")
+    this_app = FastAPI(title="matchbox", version="1.0", description="cRF/Matchability calculator API")
     this_app.mount("/static", StaticFiles(directory="static"), name="static")
 
     # start up / shut down events

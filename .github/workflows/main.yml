@@ -33,7 +33,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          tags: ghcr.io/${{ github.repository_owner }}/${{ github.repository }}:latest
 
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@master
@@ -44,7 +44,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ""
           script: |                       
-            cd /home/oxfordgenes/MatchBox   # Change this to the directory on the server where your docker-compose.yml is stored
+            cd /home/oxfordgenes/matchbox   # Change this to the directory on the server where your docker-compose.yml is stored
             docker-compose pull             # Pull the latest image
             docker-compose down             # Stop and remove any existing containers
             docker-compose up -d            # Start the services in detached mode

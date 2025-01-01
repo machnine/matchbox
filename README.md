@@ -35,13 +35,20 @@ docker build . -t matchbox:latest
 /* Running Docker container mapping port 80 to external port 4000 */
 docker run -d -p 4000:80 --restart always matchbox:latest
 ```
-### Docker image from Docker Hub
+### Docker image from GitHub Packages
 ```bash
 /* Pulling the image */
-docker pull machnine/matchbox:latest
+docker pull ghcr.io/machnine/matchbox:latest
 
 /* Running Docker container mapping port 80 to external port 4000 */
-docker run -d -p 4000:80 --restart always machnine/matchbox:latest
+docker run -d -p 4000:80 --restart always ghcr.io/machnine/matchbox:latest
+```
+
+### Deploy by docker-compose
+Copy the *docker-compose.yml* file to deployment location
+/* Run docker compose */
+```bash
+docker compose up -d
 ```
 
 ## API endpoint
