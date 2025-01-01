@@ -1,6 +1,6 @@
 services:
   matchbox:
-    image: machnine/matchbox:latest
+    image: ghcr.io/machnine/matchbox:latest
     ports:
       - "8001:80"
     restart: always
