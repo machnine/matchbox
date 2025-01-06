@@ -46,8 +46,8 @@ docker run -d -p 4000:80 --restart always ghcr.io/machnine/matchbox:latest
 
 ### Deploy by docker-compose
 Copy the *docker-compose.yml* file to deployment location
-/* Run docker compose */
 ```bash
+/* Run docker compose */
 docker compose up -d
 ```
 
@@ -55,7 +55,7 @@ docker compose up -d
 This app has one GET endpoint */calc/* which accepts the following queries:
 
 ```bash
-    GET /calc/?bg=O&specs=A2,A11,B64,CW15,DR15,DQ6,DPB2&recip_hla=B7,B18,DR9,DR2&donor_set=0 HTTP/1.1
+GET /calc/?bg=O&specs=A2,A11,B64,CW15,DR15,DQ6,DPB2&recip_hla=B7,B18,DR9,DR2&donor_set=0 HTTP/1.1
 ```
 
 - **bg**: blood group e.g. "A"

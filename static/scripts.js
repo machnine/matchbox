@@ -9,20 +9,44 @@ const toggleOffIcon = "bi-toggle2-off";
 const recalculate = () => {
   const antigenList = getSelectedAntigens();
   calculate(antigenList);
+  displaySelectedAntigens(antigenList);
 };
 
 //watch all the antigen checkboxes for changes
 const AntigenCheckBoxes = document.querySelectorAll(".antigen-checkbox");
+
 AntigenCheckBoxes.forEach((checkbox) => {
   checkbox.addEventListener("change", recalculate);
 });
 
+// get the selected antigens
 const getSelectedAntigens = () => {
   return Array.from(AntigenCheckBoxes)
     .filter((checkbox) => checkbox.checked)
-    .map((checkbox) => checkbox.value);
+    .map((checkbox) => {
+      const locus = Array.from(checkbox.classList)
+        .filter((cls) => cls.startsWith("antigen-"))[0]
+        .split("-")[1];
+      return { name: checkbox.value, locus: locus };
+    });
 };
 
+// display the selected antigens
+const displaySelectedAntigens = (antigenList) => {
+  const specsDiv = document.getElementById("id-specificities");
+  specsDiv.innerHTML = "";
+  const loci = [...new Set(antigenList.map((ag) => ag.locus))];
+
+  const locusSpansHTML = loci.map((locus) => {
+    const locusAntigens = antigenList.filter((ag) => ag.locus === locus);
+    const antigenNames = locusAntigens.map((ag) => ag.name).join(", ");
+    return `<span class="px-1 crf-locus crf-bgcolor-${locus.toLowerCase()}">${antigenNames}</span>`;
+  });
+
+  specsDiv.innerHTML = locusSpansHTML.join(", ");
+};
+
+// calculate the cRF, Mb, and AvD based on the selected antigens
 const calculate = (antigenList) => {
   const bg = document.querySelector("input[name='abo']:checked").value;
   const dpToggle = document.getElementById("id_dp-toggle");
@@ -31,7 +55,7 @@ const calculate = (antigenList) => {
   const recip_hla = Array.from(recipHlaSelects)
     .map((select) => select.value)
     .filter((value) => value);
-  const specs = antigenList.join(",");
+  const specs = antigenList.map((ag) => ag.name).join(",");
 
   fetch(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}`)
     .then((response) => {
