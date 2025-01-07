@@ -39,7 +39,11 @@ const displaySelectedAntigens = (antigenList) => {
 
   const locusSpansHTML = loci.map((locus) => {
     const locusAntigens = antigenList.filter((ag) => ag.locus === locus);
-    const antigenNames = locusAntigens.map((ag) => `<span class="ps-1">${ag.name}</span>`).join(",<wbr>");
+    const antigenNames = locusAntigens
+      .map(
+        (ag) => `<span class="ps-1 spec-span" id="span-${ag.name}" ondblclick="toggleCheckbox('id_${ag.name}')">${ag.name}</span>`
+      )
+      .join(",<wbr>");
     return `<span class="crf-locus crf-bgcolor-${locus.toLowerCase()}">${antigenNames}</span>`;
   });
 
@@ -148,3 +152,10 @@ button.addEventListener("click", () => {
       console.error("Failed to copy: ", err);
     });
 });
+
+// function to toggle a checkbox given its id
+const toggleCheckbox = (checkboxId) => {
+  const checkbox = document.getElementById(checkboxId);
+  checkbox.checked = !checkbox.checked;
+  recalculate();
+};

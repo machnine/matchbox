@@ -81,3 +81,8 @@ body {
     font-size: 0.8rem;
   }
 }
+
+/* cursor type for specificities */
+.spec-span:hover {
+  cursor: pointer;
+}
