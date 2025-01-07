@@ -39,11 +39,11 @@ const displaySelectedAntigens = (antigenList) => {
 
   const locusSpansHTML = loci.map((locus) => {
     const locusAntigens = antigenList.filter((ag) => ag.locus === locus);
-    const antigenNames = locusAntigens.map((ag) => ag.name).join(", ");
-    return `<span class="px-1 crf-locus crf-bgcolor-${locus.toLowerCase()}">${antigenNames}</span>`;
+    const antigenNames = locusAntigens.map((ag) => `<span class="ps-1">${ag.name}</span>`).join(",<wbr>");
+    return `<span class="crf-locus crf-bgcolor-${locus.toLowerCase()}">${antigenNames}</span>`;
   });
 
-  specsDiv.innerHTML = locusSpansHTML.join(", ");
+  specsDiv.innerHTML = locusSpansHTML.join(",<wbr>");
 };
 
 // calculate the cRF, Mb, and AvD based on the selected antigens
