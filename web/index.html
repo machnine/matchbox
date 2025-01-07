@@ -103,11 +103,18 @@
       </div>
       {% endfor %}
       <!-- selected antigens -->
-      
-      <div class="row bg-light crf-locus my-3 py-3 border">
+
+      <div class="row bg-light crf-locus my-3 py-3 border position-relative">
         <div class="d-flex flex-row">
           <div><span class="fw-bold text-muted">Specificities</span></div>
           <div class="px-3" id="id-specificities"></div>
+          <button
+            id="btn-copy-specs"
+            class="btn btn-sm position-absolute top-0 end-0"
+            title="☑️ copy antibody specificities">
+            <span id="id-copy-msg" class="small text-muted d-none">copied!</span>
+            <i id="id-copy-icon" class="bi bi-copy text-muted"></i>
+          </button>
         </div>
       </div>
     </main>

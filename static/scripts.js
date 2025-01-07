@@ -125,3 +125,26 @@ const recipHlaSelects = document.querySelectorAll(".recip-hla-select");
 recipHlaSelects.forEach((select) => {
   select.addEventListener("change", recalculate);
 });
+
+// copy specs
+const button = document.getElementById("btn-copy-specs");
+button.addEventListener("click", () => {
+  const specsDiv = document.getElementById("id-specificities");
+  const copyIcon = document.getElementById("id-copy-icon");
+  const copyMsg = document.getElementById("id-copy-msg");
+  navigator.clipboard
+    .writeText(specsDiv.textContent)
+    .then(() => {
+      copyIcon.classList.remove("bi-copy");
+      copyIcon.classList.add("bi-check2-all");
+      copyMsg.classList.remove("d-none");
+      setTimeout(() => {
+        copyIcon.classList.add("bi-copy");
+        copyIcon.classList.remove("bi-check2-all");
+        copyMsg.classList.add("d-none");
+      }, 1000);
+    })
+    .catch((err) => {
+      console.error("Failed to copy: ", err);
+    });
+});
