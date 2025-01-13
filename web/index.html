@@ -102,19 +102,68 @@
         </div>
       </div>
       {% endfor %}
-      <!-- selected antigens -->
+      <div class="row pt-2">
+        <!-- Tabs navigation -->
+        <ul class="nav nav-tabs" id="antigenTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button
+              class="nav-link active py-1"
+              id="selected-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#selected-pane"
+              type="button"
+              role="tab"
+              aria-controls="selected-pane"
+              aria-selected="true">
+              <i class="bi bi-ui-checks-grid"></i> Selected specs
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button
+              class="nav-link py-1"
+              id="input-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#input-pane"
+              type="button"
+              role="tab"
+              aria-controls="input-pane"
+              aria-selected="false">
+              <i class="bi bi-keyboard"></i> Input specs
+            </button>
+          </li>
+        </ul>
 
-      <div class="row bg-light crf-locus my-3 py-3 border position-relative">
-        <div class="d-flex flex-row">
-          <div><span class="fw-bold text-muted">Specificities</span></div>
-          <div class="px-3" id="id-specificities"></div>
-          <button
-            id="btn-copy-specs"
-            class="btn btn-sm position-absolute top-0 end-0"
-            title="☑️ copy antibody specificities">
-            <span id="id-copy-msg" class="small text-muted d-none">copied!</span>
-            <i id="id-copy-icon" class="bi bi-copy text-muted"></i>
-          </button>
+        <!-- Tab content -->
+        <div
+          class="tab-content border border-top-0 rounded-bottom p-3"
+          id="antigenTabsContent"
+          style="min-height: 6rem">
+          <!-- Selected antigens tab -->
+          <div class="tab-pane fade show active" id="selected-pane" role="tabpanel" aria-labelledby="selected-tab">
+            <div class="position-relative">
+              <div class="px-3" id="id-specificities"></div>
+              <button
+                id="btn-copy-specs"
+                class="btn btn-sm position-absolute top-0 end-0"
+                title="☑️ copy antibody specificities">
+                <span id="id-copy-msg" class="small text-muted d-none">copied!</span>
+                <i id="id-copy-icon" class="bi bi-copy text-muted"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Input antigens tab -->
+          <div class="tab-pane fade" id="input-pane" role="tabpanel" aria-labelledby="input-tab">
+            <div class="position-relative">
+              <div class="px-3" id="id-input-antigens">
+                <textarea 
+                  class="form-control" 
+                  id="antigen-input" 
+                  rows="2" 
+                  placeholder="Enter antigens separated by spaces or commas..."></textarea>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </main>
