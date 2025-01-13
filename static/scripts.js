@@ -55,7 +55,7 @@ const displaySelectedAntigens = (antigenList) => {
   
   // Update input textarea with plain text version
   const plainTextSpecs = antigenList.map(ag => ag.name).join(', ');
-  inputArea.value = plainTextSpecs;
+  inputArea.value = plainTextSpecs ? plainTextSpecs + ", " : "";
 };
 
 // calculate the cRF, Mb, and AvD based on the selected antigens
