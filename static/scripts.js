@@ -41,7 +41,8 @@ const displaySelectedAntigens = (antigenList) => {
     const locusAntigens = antigenList.filter((ag) => ag.locus === locus);
     const antigenNames = locusAntigens
       .map(
-        (ag) => `<span class="ps-1 spec-span" id="span-${ag.name}" ondblclick="toggleCheckbox('id_${ag.name}')">${ag.name}</span>`
+        (ag) =>
+          `<span class="ps-1 spec-span" id="span-${ag.name}" ondblclick="toggleCheckbox('id_${ag.name}')">${ag.name}</span>`
       )
       .join(",<wbr>");
     return `<span class="crf-locus crf-bgcolor-${locus.toLowerCase()}">${antigenNames}</span>`;
@@ -78,12 +79,21 @@ const calculate = (antigenList) => {
       if (data.results.match_counts) {
         const mc = data.results.match_counts;
         const convRatio = data.total / 10000; // convert DP only donor calcs to 10k donor scale
-        document.getElementById("m12a").textContent = Math.round(mc.m12a / convRatio);
-        document.getElementById("m2b").textContent = Math.round(mc.m2b / convRatio);
-        document.getElementById("m3a").textContent = Math.round(mc.m3a / convRatio);
-        document.getElementById("m3b").textContent = Math.round(mc.m3b / convRatio);
-        document.getElementById("m4a").textContent = Math.round(mc.m4a / convRatio);
-        document.getElementById("m4b").textContent = Math.round(mc.m4b / convRatio);
+        const m12a = Math.round(mc.m12a / convRatio) || 0;
+        const m12b = Math.round(mc.m12b / convRatio) || 0;
+        const m2b = Math.round(mc.m2b / convRatio) || 0;
+        const m3a = Math.round(mc.m3a / convRatio) || 0;
+        const m3b = Math.round(mc.m3b / convRatio) || 0;
+        const m4a = Math.round(mc.m4a / convRatio) || 0;
+        const m4b = Math.round(mc.m4b / convRatio) || 0;
+        const total = m12a + m12b + m2b + m3a + m3b + m4a + m4b;        
+        document.getElementById("m12a").textContent = m12a;
+        document.getElementById("m2b").textContent = m2b;
+        document.getElementById("m3a").textContent = m3a;
+        document.getElementById("m3b").textContent = m3b;
+        document.getElementById("m4a").textContent = m4a;
+        document.getElementById("m4b").textContent = m4b;
+        document.getElementById("total-donors").textContent = total;
       }
     })
     .catch((error) => {
