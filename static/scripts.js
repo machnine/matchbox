@@ -307,20 +307,20 @@ document.getElementById('btn-export-csv').addEventListener('click', () => {
     return;
   }
   
-  // Convert array fields to comma-separated strings for TSV
+  // Convert array fields to comma-separated strings for TSV and handle null values
   const tsvData = storedData.map(row => ({
-    crf: row.crf,
-    matchability: row.matchability,
-    favourable: row.favourable,
-    available: row.available,
-    recip_hla: row.recip_hla,
-    specs: row.specs.join(','), // Use comma within tab-separated format
-    removed: row.removed.join(','),
-    added: row.added.join(',')
+    'CRF (%)': row.crf || ' ',
+    'Matchability': row.matchability || ' ',
+    'Favourable': row.favourable || ' ',
+    'Available': row.available || ' ',
+    'Recipient HLA': row.recip_hla || ' ',
+    'Unacceptable Specs': row.specs.length > 0 ? row.specs.join(',') : ' ',
+    'Removed': row.removed.length > 0 ? row.removed.join(',') : ' ',
+    'Added': row.added.length > 0 ? row.added.join(',') : ' '
   }));
   
-  // Create TSV header
-  const headers = Object.keys(tsvData[0]);
+  // Create TSV header and content with new descriptive headers
+  const headers = ['CRF (%)', 'Matchability', 'Favourable', 'Available', 'Recipient HLA', 'Unacceptable Specs', 'Removed', 'Added'];
   const tsvContent = [
     headers.join('\t'), // Header row with tabs
     ...tsvData.map(row => headers.map(header => row[header]).join('\t')) // Data rows with tabs
