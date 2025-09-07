@@ -150,8 +150,8 @@
               id="btn-copy-specs"
               class="btn btn-sm position-absolute top-0 end-0 pt-0"
               title="☑️ copy antibody specificities">
-              <span id="id-copy-msg" class="small text-muted d-none">copied!</span>
               <i id="id-copy-icon" class="bi bi-copy text-muted"></i>
+              <span id="id-copy-msg" class="small text-muted d-none">Copied!</span>
             </button>
           </div>
 
@@ -171,24 +171,47 @@
       </div>
     </main>
     <footer class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 p-3 mx-auto my-3 border-top">
-      <div>
-        <a
-          data-bs-toggle="offcanvas"
-          data-bs-target="#offcanvasInfo"
-          class="btn"
-          title="ℹ️ Information about how the calculation is done">
-          <i class="bi bi-info-square text-info"></i> Information
-        </a>
-        <a data-bs-toggle="offcanvas" data-bs-target="#offcanvasHelp" class="btn" title="❓ How to use this calculator">
-          <i class="bi bi-question-square text-danger"></i> How To
-        </a>
-        <a
-          data-bs-toggle="offcanvas"
-          data-bs-target="#offcanvasMatchCount"
-          class="btn"
-          title="👥 Matched donors based on the 10,000 donor cohort">
-          <i class="bi bi-person-bounding-box text-success"></i> Match Counts
-        </a>
+      <div class="d-flex justify-content-between">
+        <div>
+          <a
+            data-bs-toggle="offcanvas"
+            data-bs-target="#offcanvasInfo"
+            class="btn"
+            title="ℹ️ Information about how the calculation is done">
+            <i class="bi bi-info-square text-info"></i> Information
+          </a>
+          <a data-bs-toggle="offcanvas" data-bs-target="#offcanvasHelp" class="btn" title="❓ How to use this calculator">
+            <i class="bi bi-question-square text-danger"></i> How To
+          </a>
+        </div>
+        <div class="d-flex align-items-center">
+          <a
+            data-bs-toggle="offcanvas"
+            data-bs-target="#offcanvasMatchCount"
+            class="btn"
+            title="👥 Matched donors based on the 10,000 donor cohort">
+            <i class="bi bi-person-bounding-box text-success"></i> Matches
+          </a>
+          <span class="text-muted ps-2 align-middle">Profiles:</span>
+          <button
+            id="btn-log-data"
+            class="btn position-relative"
+            title="➕ Add current profile to memory">
+            <i class="bi bi-plus-circle text-warning"></i> Add
+            <span id="profile-count-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" style="font-size: 0.6rem; padding: 0.15rem 0.3rem;">
+              0
+            </span>
+          </button>
+          <button
+            id="btn-export-csv"
+            class="btn"
+            style="min-width: 100px;"
+            title="📋 Copy stored profiles to clipboard">
+            <i id="export-copy-icon" class="bi bi-clipboard text-primary"></i>
+            <span id="export-copy-msg" class="small text-muted d-none">Copied!</span>
+            <span id="export-copy-text">Copy</span>
+          </button>
+        </div>
       </div>
     </footer>
     <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasInfo">

@@ -5,6 +5,12 @@ document.addEventListener("DOMContentLoaded", () => {
 const toggleOnIcon = "bi-toggle2-on";
 const toggleOffIcon = "bi-toggle2-off";
 
+// Global variable to store the latest API response data
+let currentApiData = null;
+
+// Global array to store accumulated flattened data
+let storedData = [];
+
 // recalculate the cRF, Mb, and AvD
 const recalculate = () => {
   const antigenList = getSelectedAntigens();
@@ -78,6 +84,9 @@ const calculate = (antigenList) => {
       return response.json();
     })
     .then((data) => {
+      // Store the API response data globally
+      currentApiData = data;
+      
       document.getElementById("crf-text").textContent = (data.results.crf * 100).toFixed(2) + "%";
       document.getElementById("avd-text").textContent = data.results.available;
       document.getElementById("id_dp-toggle").title = `Total donors: ${data.total}`;
@@ -231,3 +240,153 @@ document.getElementById('antigen-input').addEventListener('keypress', (event) =>
     processInputAntigens(event.target.value);
   }
 });
+
+// Log current API data to console
+document.getElementById('btn-log-data').addEventListener('click', () => {
+  if (currentApiData) {
+    let removed = [];
+    let added = [];
+    
+    // Only calculate differences if this is not the first entry
+    if (storedData.length > 0) {
+      const previousSpecs = storedData[storedData.length - 1].specs;
+      const currentSpecs = currentApiData.specs;
+      
+      // Calculate removed and added specs
+      removed = previousSpecs.filter(spec => !currentSpecs.includes(spec));
+      added = currentSpecs.filter(spec => !previousSpecs.includes(spec));
+    }
+    
+    // Create flattened data with only specified fields in the requested order
+    const flattenedData = {
+      crf: currentApiData.results.crf * 100,
+      matchability: currentApiData.results.matchability,
+      favourable: currentApiData.results.favourable,
+      available: currentApiData.results.available,
+      recip_hla: currentApiData.recip_hla,
+      specs: currentApiData.specs,
+      removed: removed,
+      added: added
+    };
+    
+    // Add current data to memory
+    storedData.push(flattenedData);
+    
+    // Update profile count badge
+    updateProfileCountBadge();
+  } else {
+    console.log('No API data available yet. Please wait for calculations to complete.');
+  }
+});
+
+// Export stored data to TSV and copy to clipboard
+document.getElementById('btn-export-csv').addEventListener('click', () => {
+  if (storedData.length === 0) {
+    console.log('No data stored yet. Please add some profiles first using the Add button.');
+    // Visual feedback for no data
+    const copyIcon = document.getElementById('export-copy-icon');
+    const copyMsg = document.getElementById('export-copy-msg');
+    const copyText = document.getElementById('export-copy-text');
+    
+    // Hide normal elements and show no data feedback
+    copyText.classList.add('d-none');
+    copyMsg.textContent = 'No data!';
+    copyMsg.classList.remove('d-none');
+    copyIcon.classList.remove('bi-clipboard');
+    copyIcon.classList.add('bi-exclamation-circle');
+    
+    setTimeout(() => {
+      // Restore normal state
+      copyText.classList.remove('d-none');
+      copyMsg.textContent = 'Copied!';
+      copyMsg.classList.add('d-none');
+      copyIcon.classList.add('bi-clipboard');
+      copyIcon.classList.remove('bi-exclamation-circle');
+    }, 2000);
+    
+    return;
+  }
+  
+  // Convert array fields to comma-separated strings for TSV
+  const tsvData = storedData.map(row => ({
+    crf: row.crf,
+    matchability: row.matchability,
+    favourable: row.favourable,
+    available: row.available,
+    recip_hla: row.recip_hla,
+    specs: row.specs.join(','), // Use comma within tab-separated format
+    removed: row.removed.join(','),
+    added: row.added.join(',')
+  }));
+  
+  // Create TSV header
+  const headers = Object.keys(tsvData[0]);
+  const tsvContent = [
+    headers.join('\t'), // Header row with tabs
+    ...tsvData.map(row => headers.map(header => row[header]).join('\t')) // Data rows with tabs
+  ].join('\n');
+  
+  // Copy to clipboard
+  navigator.clipboard.writeText(tsvContent)
+    .then(() => {
+      // Visual feedback similar to copy specs button
+      const copyIcon = document.getElementById('export-copy-icon');
+      const copyMsg = document.getElementById('export-copy-msg');
+      const copyText = document.getElementById('export-copy-text');
+      
+      // Hide normal elements and show feedback
+      copyText.classList.add('d-none');
+      copyIcon.classList.remove('bi-clipboard');
+      copyIcon.classList.add('bi-check2-all');
+      copyMsg.classList.remove('d-none');
+      
+      setTimeout(() => {
+        // Restore normal state
+        copyText.classList.remove('d-none');
+        copyIcon.classList.add('bi-clipboard');
+        copyIcon.classList.remove('bi-check2-all');
+        copyMsg.classList.add('d-none');
+      }, 2000);
+      
+      console.log('TSV data copied to clipboard!');
+      console.log('TSV Content:\n' + tsvContent);
+    })
+    .catch((err) => {
+      console.error('Failed to copy TSV to clipboard: ', err);
+      // Show error feedback
+      const copyIcon = document.getElementById('export-copy-icon');
+      const copyMsg = document.getElementById('export-copy-msg');
+      const copyText = document.getElementById('export-copy-text');
+      
+      // Hide normal elements and show error feedback
+      copyText.classList.add('d-none');
+      copyMsg.textContent = 'Error!';
+      copyMsg.classList.remove('d-none');
+      copyIcon.classList.remove('bi-clipboard');
+      copyIcon.classList.add('bi-exclamation-triangle');
+      
+      setTimeout(() => {
+        // Restore normal state
+        copyText.classList.remove('d-none');
+        copyMsg.textContent = 'Copied!';
+        copyMsg.classList.add('d-none');
+        copyIcon.classList.add('bi-clipboard');
+        copyIcon.classList.remove('bi-exclamation-triangle');
+      }, 2000);
+      
+      console.log('TSV Content:\n' + tsvContent);
+    });
+});
+
+// Function to update the profile count badge
+const updateProfileCountBadge = () => {
+  const badge = document.getElementById('profile-count-badge');
+  const count = storedData.length;
+  
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.remove('d-none');
+  } else {
+    badge.classList.add('d-none');
+  }
+};
