@@ -41,7 +41,8 @@ const displaySelectedAntigens = (antigenList) => {
     const locusAntigens = antigenList.filter((ag) => ag.locus === locus);
     const antigenNames = locusAntigens
       .map(
-        (ag) => `<span class="ps-1 spec-span" id="span-${ag.name}" ondblclick="toggleCheckbox('id_${ag.name}')">${ag.name}</span>`
+        (ag) =>
+          `<span class="ps-1 spec-span" id="span-${ag.name}" ondblclick="toggleCheckbox('id_${ag.name}')">${ag.name}</span>`
       )
       .join(",<wbr>");
     return `<span class="crf-locus crf-bgcolor-${locus.toLowerCase()}">${antigenNames}</span>`;
@@ -78,12 +79,9 @@ const calculate = (antigenList) => {
       if (data.results.match_counts) {
         const mc = data.results.match_counts;
         const convRatio = data.total / 10000; // convert DP only donor calcs to 10k donor scale
-        document.getElementById("m12a").textContent = Math.round(mc.m12a / convRatio);
-        document.getElementById("m2b").textContent = Math.round(mc.m2b / convRatio);
-        document.getElementById("m3a").textContent = Math.round(mc.m3a / convRatio);
-        document.getElementById("m3b").textContent = Math.round(mc.m3b / convRatio);
-        document.getElementById("m4a").textContent = Math.round(mc.m4a / convRatio);
-        document.getElementById("m4b").textContent = Math.round(mc.m4b / convRatio);
+        ["m12a", "m2b", "m3a", "m3b", "m4a", "m4b"].forEach((m) => {
+          document.getElementById(m).textContent = Math.round(mc[m] / convRatio);
+        });
       }
     })
     .catch((error) => {
