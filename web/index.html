@@ -171,8 +171,8 @@
       </div>
     </main>
     <footer class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 p-3 mx-auto my-3 border-top">
-      <div class="d-flex justify-content-between">
-        <div>
+      <div class="d-flex flex-column flex-sm-row justify-content-between gap-2">
+        <div class="d-flex justify-content-center justify-content-sm-start">
           <a
             data-bs-toggle="offcanvas"
             data-bs-target="#offcanvasInfo"
@@ -180,11 +180,15 @@
             title="ℹ️ Information about how the calculation is done">
             <i class="bi bi-info-square text-info"></i> Information
           </a>
-          <a data-bs-toggle="offcanvas" data-bs-target="#offcanvasHelp" class="btn" title="❓ How to use this calculator">
+          <a
+            data-bs-toggle="offcanvas"
+            data-bs-target="#offcanvasHelp"
+            class="btn"
+            title="❓ How to use this calculator">
             <i class="bi bi-question-square text-danger"></i> How To
           </a>
         </div>
-        <div class="d-flex align-items-center">
+        <div class="d-flex align-items-center justify-content-center justify-content-sm-end">
           <a
             data-bs-toggle="offcanvas"
             data-bs-target="#offcanvasMatchCount"
@@ -192,25 +196,27 @@
             title="👥 Matched donors based on the 10,000 donor cohort">
             <i class="bi bi-person-bounding-box text-success"></i> Matches
           </a>
-          <span class="text-muted ps-2 align-middle">Profiles:</span>
-          <button
-            id="btn-log-data"
-            class="btn position-relative"
-            title="➕ Add current profile to memory">
-            <i class="bi bi-plus-circle text-warning"></i> Add
-            <span id="profile-count-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" style="font-size: 0.6rem; padding: 0.15rem 0.3rem;">
-              0
-            </span>
-          </button>
-          <button
-            id="btn-export-csv"
-            class="btn"
-            style="min-width: 100px;"
-            title="📋 Copy stored profiles to clipboard">
-            <i id="export-copy-icon" class="bi bi-clipboard text-primary"></i>
-            <span id="export-copy-msg" class="small text-muted d-none">Copied!</span>
-            <span id="export-copy-text">Copy</span>
-          </button>
+          <div class="d-flex align-items-center justify-content-center bg-light p-0 m-0">
+            <span class="text-muted ps-2 align-middle small">Profiles:</span>
+            <button id="btn-log-data" class="btn position-relative" title="➕ Add current profile to memory">
+              <i class="bi bi-plus-circle text-warning"></i> Add
+              <span
+                id="profile-count-badge"
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                style="font-size: 0.6rem; padding: 0.15rem 0.3rem">
+                0
+              </span>
+            </button>
+            <button
+              id="btn-export-csv"
+              class="btn"
+              style="min-width: 100px"
+              title="📋 Copy stored profiles to clipboard">
+              <i id="export-copy-icon" class="bi bi-clipboard text-primary"></i>
+              <span id="export-copy-msg" class="small text-muted d-none">Copied!</span>
+              <span id="export-copy-text">Copy</span>
+            </button>
+          </div>
         </div>
       </div>
     </footer>
