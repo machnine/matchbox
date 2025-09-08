@@ -86,3 +86,9 @@ body {
 .spec-span:hover {
   cursor: pointer;
 }
+
+/* consistent width for recipient HLA select dropdowns */
+.recip-hla-select {
+  width: 70px;
+  min-width: 70px;
+}

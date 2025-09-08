@@ -1,4 +1,44 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Initialize Bootstrap tooltips
+  const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl, {
+      trigger: 'hover focus',
+      delay: { show: 500, hide: 100 },
+      animation: true,
+      html: false
+    });
+  });
+  
+  // Remove title attributes from elements with Bootstrap tooltips to prevent double tooltips
+  tooltipTriggerList.forEach(function (element) {
+    if (element.hasAttribute('title')) {
+      element.removeAttribute('title');
+    }
+  });
+  
+  // Initialize tooltips for elements with conflicting data-bs-toggle attributes
+  const conflictingTooltips = [
+    '#selected-tab',
+    '#input-tab', 
+    'a[data-bs-target="#offcanvasInfo"]',
+    'a[data-bs-target="#offcanvasHelp"]',
+    'a[data-bs-target="#offcanvasMatchCount"]'
+  ];
+  
+  conflictingTooltips.forEach(function(selector) {
+    const element = document.querySelector(selector);
+    if (element && element.hasAttribute('title')) {
+      new bootstrap.Tooltip(element, {
+        trigger: 'hover focus',
+        delay: { show: 500, hide: 100 },
+        animation: true,
+        html: false
+      });
+      element.removeAttribute('title');
+    }
+  });
+  
   recalculate();
 });
 
@@ -89,7 +129,25 @@ const calculate = (antigenList) => {
       
       document.getElementById("crf-text").textContent = (data.results.crf * 100).toFixed(2) + "%";
       document.getElementById("avd-text").textContent = data.results.available;
-      document.getElementById("id_dp-toggle").title = `Total donors: ${data.total}`;
+      const dpToggle = document.getElementById("id_dp-toggle");
+      dpToggle.title = `Total donors: ${data.total}`;
+      dpToggle.dataset.bsOriginalTitle = dpToggle.title;
+      dpToggle.dataset.bsToggle = "tooltip";
+      dpToggle.dataset.bsPlacement = "bottom";
+      
+      // Initialize tooltip for the toggle button since it's set dynamically
+      const existingTooltip = bootstrap.Tooltip.getInstance(dpToggle);
+      if (existingTooltip) {
+        existingTooltip.dispose();
+      }
+      new bootstrap.Tooltip(dpToggle, {
+        trigger: 'hover focus',
+        delay: { show: 500, hide: 100 },
+        animation: true,
+        html: false
+      });
+      // Remove title attribute to prevent double tooltips
+      dpToggle.removeAttribute('title');
       document.getElementById("mp-text").textContent = data.results.matchability;
       document.getElementById("fm-text").textContent = data.results.favourable;
 
