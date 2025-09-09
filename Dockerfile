@@ -2,7 +2,6 @@
 FROM python:3.13-slim AS base
 
 # ---- Builder Stage ----
-# Use a different image to build our dependencies
 FROM base AS builder
 
 # Set the working directory
@@ -15,11 +14,11 @@ RUN pip install uv
 COPY pyproject.toml .
 COPY uv.lock .
 
-# Generate a requirements.txt file with all dependencies pinned
-RUN uv pip compile --no-header --output requirements.txt
+# Generate a requirements.txt file from the uv.lock file
+# Note the addition of the --locked and pyproject.toml flags
+RUN uv pip compile --no-header --output requirements.txt --locked pyproject.toml
 
 # ---- Final Stage ----
-# Use the base image for a clean, minimal production environment
 FROM base AS final
 
 # Set the working directory
@@ -39,6 +38,9 @@ EXPOSE 80
 
 # Non-root user
 RUN adduser --disabled-password --gecos "" appuser
+
+# run tests
+RUN python -m pytest
 
 # Command to run on container start
 CMD [ "uvicorn", "api:api", "--host", "0.0.0.0", "--port", "80" ]
