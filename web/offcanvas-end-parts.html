@@ -1,74 +1,104 @@
 <div class="offcanvas-header">
-  <h5 id="offcanvasHelpLabel"><i class="bi bi-question-square text-danger"></i> How to use the calculator</h5>
+  <h5 id="offcanvasHelpLabel">
+    <i class="bi bi-question-square text-danger"></i>
+    How to use the calculator
+  </h5>
   <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
 </div>
-<div class="offcanvas-body xsmall">
+<div class="offcanvas-body xsmall pt-0">
   <div class="d-flex flex-column justify-content-between">
-    <div class="card mb-3" style="border: 0">
+    <div class="card mb-1" style="border: 0">
       <div class="card-body">
-        <p>
+        <div class="mb-2">
           <b>i. Clear data</b>
-          Click the <i class="bi bi-calculator text-success"></i> icon or
-          <b class="text-secondary">cRF Calculator</b> name to clear all data and start afresh.
-        </p>
-        <p>
+          Click the <i class="bi bi-calculator text-success"></i> icon or <b class="text-secondary">cRF Calculator</b>
+          name to clear all data and start afresh.
+        </div>
+        <div class="mb-2">
           <b>ii. Select blood group</b>
           Blood group A is selected by default. Click on the blood group name to select a different one.
-        </p>
-        <p>
+        </div>
+        <div class="mb-2">
           <b>iii. Select antibody specificities</b>
           Click antigen names to select/deselect them. Selected antigens are highlighted in blue. Click locus names to
           toggle between selecting all or none of that locus.
-        </p>
-        <p>
+        </div>
+        <div class="mb-2">
           <b>iv. Matchability calculation</b>
           HLA-B and DRB1 types are required for matchability. Select from the drop-down lists. For homozygous types,
           select the same specificity twice or select one and leave the other blank.
-        </p>
-        <p>
+        </div>
+        <div class="mb-2">
           <b>v. Donor cohort selection</b>
-          Only 3,642 donors in the 10,000 cohort are DP typed. Click
-          <i class="bi bi-toggle2-on text-success"><small>A</small></i> to toggle between all donors and DP-typed only
+          Only 3,642 donors in the 10,000 cohort are DP typed.
+          Click <i class="bi bi-toggle2-on text-success"><small>A</small></i> to toggle between all donors and DP-typed
+          only
           <i class="bi bi-toggle2-off text-success"><small>D</small></i>.
-        </p>
-        <p>
+        </div>
+        <div class="mb-2">
           <b>vi. <i class="bi bi-ui-checks-grid text-primary"></i> Selected specs</b>
-          Copy selected specificities to clipboard by clicking <i class="bi bi-copy"></i>. This copies text without
-          formatting. <i class="fw-semibold">Double click</i> any specificity to remove it.
-        </p>
-        <p>
-          <b>vii. <i class="bi bi-keyboard text-primary"></i> Input specs</b>
+          Copy selected specificities to clipboard by clicking
+          <i class="bi bi-copy"></i>. This copies text without formatting.
+          <i class="fw-semibold">Double click</i> any specificity to remove it.
+        </div>
+        <div class="mb-2">
+          <b>vii. <i class="bi bi-keyboard text-primary"></i> Manual specs input</b>
           Type antigens separated by spaces or commas. Input is case insensitive.
           <b>CW</b>n and <b>DPB</b>n can be input as <b>C</b>n or <b>DP</b>n. Press enter to process.
-        </p>
-        <p>
+        </div>
+        <div class="mb-2">
           <b>viii. Click <i class="bi bi-person-bounding-box text-success"></i> Matches</b>
           to view a table showing donor availability at each matching level (HLA matching grade).
-        </p>
-        <p>
+        </div>
+        <div class="mb-2">
           <b>ix. Profile collection</b>
-          Click <i class="bi bi-plus-circle text-warning"></i> <b>Add</b> to save current results (cRF, matchability,
-          specs) to memory. Red badge shows saved count. Click
-          <b><i class="bi bi-clipboard text-primary"></i> Copy</b> to export as
-          <i>tab separated values (.tsv)</i> format for Excel/analysis tools.
-        </p>
+          Click <i class="bi bi-plus-circle text-warning"></i> <b>Add</b>
+          to save current results (cRF, matchability, specs) to memory. Red badge shows saved count. Click
+          <b><i class="bi bi-clipboard text-primary"></i> Copy</b> to export as <i>tab separated values (.tsv)</i>
+          format for Excel/analysis tools.
+        </div>
       </div>
     </div>
     <div class="card bg-light">
-      <div class="card-body">
-        <span class="text-muted">Data source:</span> <i class="text-danger">hla-mm-and-crf_2024.xlsb</i>
-        <a href="https://www.odt.nhs.uk/transplantation/tools-policies-and-guidance/calculators/" target="_blank">
-          <i class="bi bi-box-arrow-up-right"></i></a>
-        <br />
-        <span class="text-muted">File size signature:</span> <i class="text-success">24,099,579</i>.
-        <br />
-        <span class="text-muted">Created by:</span> Mian Chen - <i>March 2024.</i>
-        <br />
-        <span class="text-muted"><i class="bi bi-pc-display-horizontal"></i> API documentation: <a href="/docs">matchbox API</a></span>
-        <br />
-        <span class="text-muted"><i class="bi bi-github"></i> GitHub repo: <a href="https://github.com/machnine/matchbox">machnine/matchbox</a></span>
-        <br />
-        <span class="text-muted"><i class="bi bi-box"></i> GitHub pkg: <a href="https://github.com/machnine/matchbox/pkgs/container/matchbox">ghcr.io/machnine/matchbox:latest</a></span>
+      <div class="card-body d-flex flex-column">
+        <div class="mb-1">
+          <span class="text-muted">Data source:</span>
+          <i class="text-danger">hla-mm-and-crf_2024.xlsb</i>
+          <a href="https://www.odt.nhs.uk/transplantation/tools-policies-and-guidance/calculators/" target="_blank">
+            <i class="bi bi-box-arrow-up-right"></i>
+          </a>
+        </div>
+        <div class="mb-1"
+          data-bs-title="🤷File size signature used to identifiy the 'version' of the ODT Excel file as currently there is no version controls."
+          data-bs-toggle="tooltip" data-bs-placement="top">
+          <span class="text-muted">File size signature:</span>
+          <i class="text-success">24,099,579</i>.
+        </div>
+        <div class="mb-1">
+          <span class="text-muted">Created by:</span>
+          Mian Chen - <i>March 2024.</i>
+        </div>
+        <div class="mb-1">
+          <span class="text-muted">
+            <i class="bi bi-pc-display-horizontal"></i>
+            API documentation:
+            <a href="/docs">matchbox API</a>
+          </span>
+        </div>
+        <div class="mb-1">
+          <span class="text-muted">
+            <i class="bi bi-github"></i>
+            GitHub repo:
+            <a href="https://github.com/machnine/matchbox">machnine/matchbox</a>
+          </span>
+        </div>
+        <div>
+          <span class="text-muted">
+            <i class="bi bi-box"></i>
+            GitHub pkg:
+            <a href="https://github.com/machnine/matchbox/pkgs/container/matchbox">ghcr.io/machnine/matchbox:latest</a>
+          </span>
+        </div>
       </div>
     </div>
   </div>

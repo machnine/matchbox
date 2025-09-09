@@ -1,235 +1,217 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="cRF Calculator: Calculate Calculated Reaction Frequency and manage unacceptable antigens for transplant matching." />
-    <meta name="keywords" content="cRF, calculator, transplant, antigens, HLA, blood group, matching, donor, recipient" />
-    <link href="{{ url_for('static', path='bootstrap-5.2.3.min.css') }}" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
-    <link href="{{ url_for('static', path='style.css') }}" rel="stylesheet" />
-    <link id="favicon" rel="icon" href="{{ url_for('static', path='favicon.ico') }}" type="image/x-icon" />
-    <title>cRF Calculator</title>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ tracking_id }}"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-      gtag("js", new Date());
-      gtag("config", "{{ tracking_id }}");
-    </script>
-  </head>
-  <body class="container-fluid">
-    <header
-      class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 px-3 mx-auto d-flex align-items-center justify-content-between fixed-top border-bottom bg-white">
-      <div class="fs-3">
-        <a href="/" class="nav-link" title="🧮 Calculated Reaction Frequency Calculator" data-bs-toggle="tooltip" data-bs-placement="bottom"">
-          <i class="bi bi-calculator-fill text-primary"> </i>
-          <span class="text-secondary d-none d-sm-inline-block">cRF Calculator</span>
-        </a>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="cRF Calculator: Calculate Calculated Reaction Frequency and manage unacceptable antigens for transplant matching." />
+  <meta name="keywords" content="cRF, calculator, transplant, antigens, HLA, blood group, matching, donor, recipient" />
+  <link href="{{ url_for('static', path='bootstrap-5.2.3.min.css') }}" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link href="{{ url_for('static', path='style.css') }}" rel="stylesheet" />
+  <link id="favicon" rel="icon" href="{{ url_for('static', path='favicon.ico') }}" type="image/x-icon" />
+  <title>cRF Calculator</title>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id={{ tracking_id }}"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag("js", new Date());
+    gtag("config", "{{ tracking_id }}");
+  </script>
+</head>
+
+<body class="container-fluid">
+  <header
+    class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 px-3 mx-auto d-flex align-items-center justify-content-between fixed-top border-bottom bg-white">
+    <div class="fs-3">
+      <a href="/" class="nav-link" title="🧮 Calculated Reaction Frequency Calculator" data-bs-toggle="tooltip"
+        data-bs-placement="bottom">
+        <i class="bi bi-calculator-fill text-primary"></i>
+        <span class="text-secondary d-none d-sm-inline-block">cRF Calculator</span>
+      </a>
+    </div>
+    <div class="d-flex align-items-center justify-content-between metrics">
+      <div class="metric" title="Calculated reaction frequency" data-bs-toggle="tooltip" data-bs-placement="bottom">
+        <i>cRF:</i>
+        <span id="crf-text">0%</span>
       </div>
-      <div class="d-flex align-items-center justify-content-between metrics">
-        <div class="metric" title="Calculated reaction frequency" data-bs-toggle="tooltip" data-bs-placement="bottom">
-          <i>cRF:</i> <span id="crf-text">0%</span>
-        </div>
-        <div class="metric toggle-hide" title="Matchability point" data-bs-toggle="tooltip" data-bs-placement="bottom"><i>Mp:</i> <span id="mp-text">0</span></div>
-        <div class="metric toggle-hide" title="Favourably matched" data-bs-toggle="tooltip" data-bs-placement="bottom"><i>Fm:</i> <span id="fm-text">0</span></div>
-        <div class="metric" title="ABO-identical donors" data-bs-toggle="tooltip" data-bs-placement="bottom"><i>Ad:</i> <span id="avd-text">0</span></div>
-        <button class="btn metric-toggle" id="id_dp-toggle" data-bs-toggle="tooltip" data-bs-placement="bottom">
-          <i class="bi bi-toggle2-on"><small>A</small></i>
-        </button>
+      <div class="metric toggle-hide" title="Matchability point" data-bs-toggle="tooltip" data-bs-placement="bottom">
+        <i>Mp:</i>
+        <span id="mp-text">0</span>
       </div>
-    </header>
-    <main class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 px-3 mx-auto" style="padding-top: 50px">
-      <div class="row">
-        <div class="col-12 col-xxl-5">
-          <div class="row py-2">
-            <div class="col-2 col-sm-3">
-              <span class="pe-3 text-muted" title="Recipient blood group" data-bs-toggle="tooltip" data-bs-placement="bottom">
-                <i class="bi bi-droplet-half text-danger"></i>
-                <span class="d-none d-xxl-inline-block small">Blood</span>
-              </span>
-            </div>
-            <div class="col-10 col-sm-9 d-flex justify-content-between">
-              {% for bg in ['A','B','O','AB'] %}
-              <div class="form-check">
-                <input class="form-check-input" name="abo" type="radio" id="id_{{ bg }}" value="{{ bg }}" {% if bg ==
-                'A' %}checked{% endif %}/>
-                <label class="form-check-label" for="id_{{ bg }}">{{ bg }}&nbsp;&nbsp;</label>
-              </div>
-              {% endfor %}
-            </div>
+      <div class="metric toggle-hide" title="Favourably matched" data-bs-toggle="tooltip" data-bs-placement="bottom">
+        <i>Fm:</i>
+        <span id="fm-text">0</span>
+      </div>
+      <div class="metric" title="ABO-identical donors" data-bs-toggle="tooltip" data-bs-placement="bottom">
+        <i>Ad:</i>
+        <span id="avd-text">0</span>
+      </div>
+      <button class="btn metric-toggle" id="id_dp-toggle" data-bs-toggle="tooltip" data-bs-placement="bottom">
+        <i class="bi bi-toggle2-on"><small>A</small></i>
+      </button>
+    </div>
+  </header>
+  <main class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 px-3 mx-auto" style="padding-top: 50px">
+    <div class="row">
+      <div class="col-12 col-xxl-5">
+        <div class="row py-2">
+          <div class="col-2 col-sm-3">
+            <span class="pe-3 text-muted" title="Recipient blood group" data-bs-toggle="tooltip"
+              data-bs-placement="bottom">
+              <i class="bi bi-droplet-half text-danger"></i>
+              <span class="d-none d-xxl-inline-block small">Blood</span>
+            </span>
           </div>
-        </div>
-        <div class="col-xxl-2 d-none d-xxl-block"></div>
-        <div class="col-12 col-xxl-5">
-          <div class="py-2 d-flex justify-content-between">
-            <div class="text-muted" title="Recipient HLA-B and DRB1 types" data-bs-toggle="tooltip" data-bs-placement="bottom">
-              <i class="bi bi-person-standing text-info"></i>
-              <span class="d-none d-xxl-inline-block small">HLA-B/DR</span>
-            </div>
-            {% for locus in ['B', 'B','DR', 'DR'] %}
-            <div class="px-sm-1">
-              <select class="form-select form-select-sm crf-bgcolor-{{ locus.lower() }} recip-hla-select">
-                <option value="">{{ locus }}</option>
-                {% for ag in mantigens[locus] %}
-                <option value="{{ ag }}">{{ ag }}</option>
-                {% endfor %}
-              </select>
+          <div class="col-10 col-sm-9 d-flex justify-content-between">
+            {% for bg in ['A','B','O','AB'] %}
+            <div class="form-check">
+              <input class="form-check-input" name="abo" type="radio" id="id_{{ bg }}" value="{{ bg }}" {% if bg=='A'
+                %}checked{% endif %} />
+              <label class="form-check-label" for="id_{{ bg }}">{{ bg }}&nbsp;&nbsp;</label>
             </div>
             {% endfor %}
           </div>
         </div>
       </div>
-
-      {% for locus, ags in antigens.items() %}
-      <div class="row my-2 py-1 crf-locus crf-bgcolor-{{ locus.lower() }}" id="id_{{ locus }}">
-        <div class="col-1 fw-bold text-muted crf-locus-name" id="id_locus-{{locus}}">{{ locus }}</div>
-        <div class="col-11 row">
-          {% for ag in ags %}
-          <div class="col-3 col-lg-2 col-xxl-1">
-            <div class="form-check">
-              <input
-                class="form-check-input antigen-{{ locus }} antigen-checkbox"
-                name="{{ ag }}"
-                type="checkbox"
-                id="id_{{ ag }}"
-                value="{{ ag }}" />
-              <label class="form-check-label" for="id_{{ ag }}">{{ ag }}</label>
-            </div>
+      <div class="col-xxl-2 d-none d-xxl-block"></div>
+      <div class="col-12 col-xxl-5">
+        <div class="py-2 d-flex justify-content-between">
+          <div class="text-muted" title="Recipient HLA-B and DRB1 types" data-bs-toggle="tooltip"
+            data-bs-placement="bottom">
+            <i class="bi bi-person-standing text-info"></i>
+            <span class="d-none d-xxl-inline-block small">HLA-B/DR</span>
+          </div>
+          {% for locus in ['B', 'B','DR', 'DR'] %}
+          <div class="px-sm-1">
+            <select class="form-select form-select-sm crf-bgcolor-{{ locus.lower() }} recip-hla-select">
+              <option value="">{{ locus }}</option>
+              {% for ag in mantigens[locus] %}
+              <option value="{{ ag }}">{{ ag }}</option>
+              {% endfor %}
+            </select>
           </div>
           {% endfor %}
         </div>
       </div>
-      {% endfor %}
-      <div class="row pt-2">
-        <!-- Tabs navigation -->
-        <ul class="nav nav-tabs" id="antigenTabs" role="tablist">
-          <li class="nav-item" role="presentation">
-            <button
-              class="nav-link active py-1"
-              id="selected-tab"
-              data-bs-toggle="tab"
-              data-bs-target="#selected-pane"
-              type="button"
-              role="tab"
-              aria-controls="selected-pane"
-              aria-selected="true"
-              title="☑️ Selected unacceptable antigens">
-              <i class="bi bi-ui-checks-grid"></i> Selected specs
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button
-              class="nav-link py-1"
-              id="input-tab"
-              data-bs-toggle="tab"
-              data-bs-target="#input-pane"
-              type="button"
-              role="tab"
-              aria-controls="input-pane"
-              aria-selected="false"
-              title="⌨️ Input unacceptable antigens">
-              <i class="bi bi-keyboard"></i> Input specs
-            </button>
-          </li>
-        </ul>
-        <!-- Tab content -->
-        <div
-          class="tab-content border border-top-0 rounded-bottom pt-3 px-0"
-          id="antigenTabsContent"
-          style="min-height: 6rem">
-          <!-- Selected antigens tab -->
-          <div
-            class="tab-pane fade show active position-relative"
-            id="selected-pane"
-            role="tabpanel"
-            aria-labelledby="selected-tab">
-            <div class="px-3" id="id-specificities"></div>
-            <button
-              id="btn-copy-specs"
-              class="btn btn-sm position-absolute top-0 end-0 pt-0"
-              title="☑️ copy antibody specificities" data-bs-toggle="tooltip" data-bs-placement="left">
-              <i id="id-copy-icon" class="bi bi-copy text-muted"></i>
-              <span id="id-copy-msg" class="small text-muted d-none">Copied!</span>
-            </button>
-          </div>
+    </div>
 
-          <!-- Input antigens tab -->
-          <div class="tab-pane fade" id="input-pane" role="tabpanel" aria-labelledby="input-tab">
-            <div class="position-relative">
-              <div class="px-3" id="id-input-antigens">
-                <textarea
-                  class="form-control"
-                  id="antigen-input"
-                  rows="2"
-                  placeholder="Enter antigens separated by spaces or commas..."></textarea>
-              </div>
+    {% for locus, ags in antigens.items() %}
+    <div class="row my-2 py-1 crf-locus crf-bgcolor-{{ locus.lower() }}" id="id_{{ locus }}">
+      <div class="col-1 fw-bold text-muted crf-locus-name" id="id_locus-{{locus}}">{{ locus }}</div>
+      <div class="col-11 row">
+        {% for ag in ags %}
+        <div class="col-3 col-lg-2 col-xxl-1">
+          <div class="form-check">
+            <input class="form-check-input antigen-{{ locus }} antigen-checkbox" name="{{ ag }}" type="checkbox"
+              id="id_{{ ag }}" value="{{ ag }}" />
+            <label class="form-check-label" for="id_{{ ag }}">{{ ag }}</label>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    <div class="row pt-2">
+      <!-- Tabs navigation -->
+      <ul class="nav nav-tabs" id="antigenTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active py-1" id="selected-tab" data-bs-toggle="tab" data-bs-target="#selected-pane"
+            type="button" role="tab" aria-controls="selected-pane" aria-selected="true"
+            title="☑️ Selected unacceptable antigens">
+            <i class="bi bi-ui-checks-grid"></i>
+            Selected specs
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link py-1" id="input-tab" data-bs-toggle="tab" data-bs-target="#input-pane" type="button"
+            role="tab" aria-controls="input-pane" aria-selected="false"
+            title="⌨️ Manually typing in unacceptable antigens">
+            <i class="bi bi-keyboard"></i>
+            Input specs
+          </button>
+        </li>
+      </ul>
+      <!-- Tab content -->
+      <div class="tab-content border border-top-0 rounded-bottom pt-3 px-0" id="antigenTabsContent"
+        style="min-height: 6rem">
+        <!-- Selected antigens tab -->
+        <div class="tab-pane fade show active position-relative" id="selected-pane" role="tabpanel"
+          aria-labelledby="selected-tab">
+          <div class="px-3" id="id-specificities"></div>
+          <button id="btn-copy-specs" class="btn btn-sm position-absolute top-0 end-0 pt-0"
+            title="☑️ copy antibody specificities" data-bs-toggle="tooltip" data-bs-placement="left">
+            <i id="id-copy-icon" class="bi bi-copy text-muted"></i>
+            <span id="id-copy-msg" class="small text-muted d-none">Copied!</span>
+          </button>
+        </div>
+
+        <!-- Input antigens tab -->
+        <div class="tab-pane fade" id="input-pane" role="tabpanel" aria-labelledby="input-tab">
+          <div class="position-relative">
+            <div class="px-3" id="id-input-antigens">
+              <textarea class="form-control" id="antigen-input" rows="2"
+                placeholder="Enter antigens separated by spaces or commas..."></textarea>
             </div>
           </div>
         </div>
       </div>
-    </main>
-    <footer class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 p-3 mx-auto my-3 border-top">
-      <div class="d-flex flex-column flex-sm-row justify-content-between gap-2">
-        <div class="d-flex justify-content-center justify-content-sm-start">
-          <a
-            data-bs-toggle="offcanvas"
-            data-bs-target="#offcanvasInfo"
-            class="btn"
-            title="ℹ️ Information about how the calculation is done">
-            <i class="bi bi-info-square text-info"></i> Information
-          </a>
-          <a
-            data-bs-toggle="offcanvas"
-            data-bs-target="#offcanvasHelp"
-            class="btn"
-            title="❓ How to use this calculator">
-            <i class="bi bi-question-square text-danger"></i> How To
-          </a>
-        </div>
-        <div class="d-flex align-items-center justify-content-center justify-content-sm-end">
-          <a
-            data-bs-toggle="offcanvas"
-            data-bs-target="#offcanvasMatchCount"
-            class="btn"
-            title="👥 Matched donors based on the 10,000 donor cohort">
-            <i class="bi bi-person-bounding-box text-success"></i> Matches
-          </a>
-          <div class="d-flex align-items-center justify-content-center bg-light p-0 m-0">
-            <span class="text-muted ps-2 align-middle small">Profiles:</span>
-            <button id="btn-log-data" class="btn position-relative" title="➕ Add current profile to memory" data-bs-toggle="tooltip" data-bs-placement="top">
-              <i class="bi bi-plus-circle text-warning"></i> Add
-              <span
-                id="profile-count-badge"
-                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
-                style="font-size: 0.6rem; padding: 0.15rem 0.3rem">
-                0
-              </span>
-            </button>
-            <button
-              id="btn-export-csv"
-              class="btn"
-              style="min-width: 100px"
-              title="📋 Copy stored profiles to clipboard" data-bs-toggle="tooltip" data-bs-placement="top">
-              <i id="export-copy-icon" class="bi bi-clipboard text-primary"></i>
-              <span id="export-copy-msg" class="small text-muted d-none">Copied!</span>
-              <span id="export-copy-text">Copy</span>
-            </button>
-          </div>
+    </div>
+  </main>
+  <footer class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 p-3 mx-auto my-3 border-top">
+    <div class="d-flex flex-column flex-sm-row justify-content-between gap-2">
+      <div class="d-flex justify-content-center justify-content-sm-start">
+        <a data-bs-toggle="offcanvas" data-bs-target="#offcanvasInfo" class="btn"
+          title="ℹ️ Information about how the calculation is done">
+          <i class="bi bi-info-square text-info"></i>
+          Information
+        </a>
+        <a data-bs-toggle="offcanvas" data-bs-target="#offcanvasHelp" class="btn" title="❓ How to use this calculator">
+          <i class="bi bi-question-square text-danger"></i>
+          How To
+        </a>
+      </div>
+      <div class="d-flex align-items-center justify-content-center justify-content-sm-end">
+        <a data-bs-toggle="offcanvas" data-bs-target="#offcanvasMatchCount" class="btn"
+          title="👥 Matched donors based on the 10,000 donor cohort">
+          <i class="bi bi-person-bounding-box text-success"></i>
+          Matches
+        </a>
+        <div class="d-flex align-items-center justify-content-center bg-light p-0 m-0">
+          <span class="text-muted ps-2 align-middle small">Profiles:</span>
+          <button id="btn-log-data" class="btn position-relative" title="➕ Add current profile to memory"
+            data-bs-toggle="tooltip" data-bs-placement="top">
+            <i class="bi bi-plus-circle text-warning"></i>
+            Add
+            <span id="profile-count-badge"
+              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+              style="font-size: 0.6rem; padding: 0.15rem 0.3rem">
+              0
+            </span>
+          </button>
+          <button id="btn-export-csv" class="btn" style="min-width: 100px" title="📋 Copy stored profiles to clipboard"
+            data-bs-toggle="tooltip" data-bs-placement="top">
+            <i id="export-copy-icon" class="bi bi-clipboard text-primary"></i>
+            <span id="export-copy-msg" class="small text-muted d-none">Copied!</span>
+            <span id="export-copy-text">Copy</span>
+          </button>
         </div>
       </div>
-    </footer>
-    <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasInfo">
-      {% include 'offcanvas-start-parts.html' %}
     </div>
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasHelp">{% include 'offcanvas-end-parts.html' %}</div>
-    <div class="offcanvas offcanvas-bottom" tabindex="-1" id="offcanvasMatchCount">
-      {% include 'offcanvas-bottom-parts.html' %}
-    </div>
-    <script src="{{ url_for('static', path='bootstrap-5.2.3.bundle.min.js') }}"></script>
-    <script src="{{ url_for('static', path='scripts.js') }}"></script>
-  </body>
+  </footer>
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasInfo">
+    {% include 'offcanvas-start-parts.html' %}
+  </div>
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasHelp">{% include 'offcanvas-end-parts.html' %}</div>
+  <div class="offcanvas offcanvas-bottom" tabindex="-1" id="offcanvasMatchCount">
+    {% include 'offcanvas-bottom-parts.html' %}
+  </div>
+  <script src="{{ url_for('static', path='bootstrap-5.2.3.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', path='scripts.js') }}"></script>
+</body>
+
 </html>
