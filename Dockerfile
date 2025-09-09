@@ -14,9 +14,8 @@ RUN pip install uv
 COPY pyproject.toml .
 COPY uv.lock .
 
-# Generate a requirements.txt file from the uv.lock file
-# Note the addition of the --locked and pyproject.toml flags
-RUN uv pip compile --no-header --output requirements.txt --locked pyproject.toml
+# Generate a requirements.txt file from the pyproject.toml and uv.lock files
+RUN uv pip compile --no-header --output-file requirements.txt pyproject.toml
 
 # ---- Final Stage ----
 FROM base AS final
