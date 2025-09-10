@@ -14,6 +14,15 @@ from .logger import log_manager
 
 logger = log_manager.get_logger("error.log", log_source="data.py")
 
+# TODO: update this list when the calculator excel file is updated
+# antigens to exclude from calculations
+# ["A19_S", "B0703", "B5102", "B5103", "CW13","DR1403", "DR1404" ...]
+# The HLA-antigen assignments were wrong for some antigens - see
+# https://nhsbtdbe.blob.core.windows.net/umbraco-assets-corp/35556/inf1766.pdf
+# however, these are not yet updated in the donor database, they are not yet
+# excluded, exclude them next time the calculator excel file is updated
+EXCLUDED_ANTIGENS = ["A19_S", "CW13"]
+
 
 class DataLoader:
     """load data into memory"""
@@ -64,7 +73,7 @@ class DataLoader:
         antigen_dict = defaultdict(list)
         cols = self.donors[0].columns
         for col in cols:
-            if col not in ["A19_S"]:
+            if col not in EXCLUDED_ANTIGENS:
                 if locus := self._get_locus(col):
                     antigen_dict[locus].append(col)
         return antigen_dict

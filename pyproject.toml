@@ -18,3 +18,8 @@ dependencies = [
 [tool.ruff]
 line-length = 120
 extend-select = ["I"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.12",
+]
