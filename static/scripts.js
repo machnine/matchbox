@@ -103,6 +103,29 @@ const handleBroadSplitRelationship = (antigenName, isChecked) => {
   }
 };
 
+// Centralized checkbox update handler
+// This ensures consistent behavior across all checkbox update methods
+const updateCheckbox = (checkboxId, newState) => {
+  const checkbox = document.getElementById(checkboxId);
+  if (!checkbox) return false;
+  
+  checkbox.checked = newState;
+  
+  // Handle broad/split relationships
+  const antigenName = checkbox.value;
+  handleBroadSplitRelationship(antigenName, newState);
+  
+  // Update locus state tracker
+  const locus = Array.from(checkbox.classList)
+    .filter((cls) => cls.startsWith("antigen-"))[0]
+    .split("-")[1];
+  const antigenCheckboxes = document.querySelectorAll(".antigen-" + locus);
+  locusOriginalStates[locus] = Array.from(antigenCheckboxes).map(cb => cb.checked);
+  locusStateTracker[locus] = "original";
+  
+  return true;
+};
+
 // recalculate the cRF, Mb, and AvD
 const recalculate = () => {
   const antigenList = getSelectedAntigens();
@@ -115,21 +138,8 @@ const AntigenCheckBoxes = document.querySelectorAll(".antigen-checkbox");
 
 AntigenCheckBoxes.forEach((checkbox) => {
   checkbox.addEventListener("change", function() {
-    const antigenName = this.value; // e.g., "A19" or "A29"
-    
-    // Handle broad/split relationships FIRST
-    handleBroadSplitRelationship(antigenName, this.checked);
-    
-    // Extract locus from checkbox class
-    const locus = Array.from(this.classList)
-      .filter((cls) => cls.startsWith("antigen-"))[0]
-      .split("-")[1];
-    
-    // Reset this locus to "original" state and save current checkbox states
-    const antigenCheckboxes = document.querySelectorAll(".antigen-" + locus);
-    locusOriginalStates[locus] = Array.from(antigenCheckboxes).map(cb => cb.checked);
-    locusStateTracker[locus] = "original";
-    
+    // Use centralized update handler
+    updateCheckbox(this.id, this.checked);
     recalculate();
   });
 });
@@ -333,13 +343,10 @@ button.addEventListener("click", () => {
 // function to toggle a checkbox given its id
 const toggleCheckbox = (checkboxId) => {
   const checkbox = document.getElementById(checkboxId);
+  if (!checkbox) return;
+  
   const newState = !checkbox.checked;
-  checkbox.checked = newState;
-  
-  // Handle broad/split relationships
-  const antigenName = checkbox.value;
-  handleBroadSplitRelationship(antigenName, newState);
-  
+  updateCheckbox(checkboxId, newState);
   recalculate();
 };
 
@@ -370,14 +377,11 @@ const processInputAntigens = (inputText) => {
   // Track which antigens weren't found
   const notFound = [];
   
-  // Process each antigen and apply broad/split logic
+  // Process each antigen using centralized update handler
   inputAntigens.forEach(ag => {
-    const checkbox = document.getElementById(`id_${ag}`);
-    if (checkbox) {
-      checkbox.checked = true;
-      // Apply broad/split relationships for this antigen
-      handleBroadSplitRelationship(ag, true);
-    } else {
+    const checkboxId = `id_${ag}`;
+    const success = updateCheckbox(checkboxId, true);
+    if (!success) {
       notFound.push(ag);
     }
   });
