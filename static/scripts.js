@@ -333,7 +333,13 @@ button.addEventListener("click", () => {
 // function to toggle a checkbox given its id
 const toggleCheckbox = (checkboxId) => {
   const checkbox = document.getElementById(checkboxId);
-  checkbox.checked = !checkbox.checked;
+  const newState = !checkbox.checked;
+  checkbox.checked = newState;
+  
+  // Handle broad/split relationships
+  const antigenName = checkbox.value;
+  handleBroadSplitRelationship(antigenName, newState);
+  
   recalculate();
 };
 
@@ -364,11 +370,13 @@ const processInputAntigens = (inputText) => {
   // Track which antigens weren't found
   const notFound = [];
   
-  // Process each antigen
+  // Process each antigen and apply broad/split logic
   inputAntigens.forEach(ag => {
     const checkbox = document.getElementById(`id_${ag}`);
     if (checkbox) {
       checkbox.checked = true;
+      // Apply broad/split relationships for this antigen
+      handleBroadSplitRelationship(ag, true);
     } else {
       notFound.push(ag);
     }
