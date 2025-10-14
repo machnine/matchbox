@@ -62,7 +62,19 @@ const recalculate = () => {
 const AntigenCheckBoxes = document.querySelectorAll(".antigen-checkbox");
 
 AntigenCheckBoxes.forEach((checkbox) => {
-  checkbox.addEventListener("change", recalculate);
+  checkbox.addEventListener("change", function() {
+    // Extract locus from checkbox class
+    const locus = Array.from(this.classList)
+      .filter((cls) => cls.startsWith("antigen-"))[0]
+      .split("-")[1];
+    
+    // Reset this locus to "original" state and save current checkbox states
+    const antigenCheckboxes = document.querySelectorAll(".antigen-" + locus);
+    locusOriginalStates[locus] = Array.from(antigenCheckboxes).map(cb => cb.checked);
+    locusStateTracker[locus] = "original";
+    
+    recalculate();
+  });
 });
 
 // get the selected antigens
@@ -176,7 +188,10 @@ const calculate = (antigenList) => {
     });
 };
 
-// toggle all antigens by locus
+// Toggle all antigens by locus with 3-state cycle: original -> clear-all -> check-all -> original
+const locusStateTracker = {};
+const locusOriginalStates = {};
+
 const LocusNames = document.querySelectorAll(".crf-locus-name");
 LocusNames.forEach((locusName) => {
   locusName.addEventListener("click", function () {
@@ -187,8 +202,25 @@ LocusNames.forEach((locusName) => {
 
 const toggleAntigensByLocus = (locus) => {
   const antigenCheckboxes = document.querySelectorAll(".antigen-" + locus);
-  const targetCheckedState = !antigenCheckboxes[0].checked;
-  antigenCheckboxes.forEach((checkbox) => (checkbox.checked = targetCheckedState));
+  const currentState = locusStateTracker[locus] || "original";
+  
+  if (currentState === "original") {
+    // Save current state and move to clear-all
+    locusOriginalStates[locus] = Array.from(antigenCheckboxes).map(cb => cb.checked);
+    antigenCheckboxes.forEach((checkbox) => (checkbox.checked = false));
+    locusStateTracker[locus] = "clear-all";
+  } else if (currentState === "clear-all") {
+    // Move to check-all
+    antigenCheckboxes.forEach((checkbox) => (checkbox.checked = true));
+    locusStateTracker[locus] = "check-all";
+  } else if (currentState === "check-all") {
+    // Restore original state
+    antigenCheckboxes.forEach((checkbox, index) => {
+      checkbox.checked = locusOriginalStates[locus][index];
+    });
+    locusStateTracker[locus] = "original";
+  }
+  
   recalculate();
 };
 
