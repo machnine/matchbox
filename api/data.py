@@ -99,6 +99,29 @@ class DataLoader:
         data = self._load_table("antigen_defaults", "where locus in ('B', 'DR')")
         return data.reset_index().set_index("rare")["default"].to_dict()
 
+    def broad_split_mapping(self) -> Dict[str, Dict[str, Any]]:
+        """load broad/split antigen mappings"""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT Locus, Split, Broad FROM broad_split_mapping")
+            rows = cursor.fetchall()
+            
+            # Build broad_to_splits and split_to_broad mappings
+            broad_to_splits = defaultdict(list)
+            split_to_broad = {}
+            
+            for _locus, split, broad in rows:
+                broad_to_splits[broad].append(split)
+                split_to_broad[split] = broad
+            
+            return {
+                "broad_to_splits": dict(broad_to_splits),
+                "split_to_broad": split_to_broad
+            }
+        except sqlite3.Error as e:
+            logger.error("Error loading broad/split mapping: %s", e)
+            return {"broad_to_splits": {}, "split_to_broad": {}}
+
     @property
     def base_data(self):
         """get data"""
@@ -108,6 +131,7 @@ class DataLoader:
             mbands=self.matchability_bands(),
             mantigens=self.matchability_antigens(),
             antigen_defaults=self.antigen_defaults(),
+            broad_split=self.broad_split_mapping(),
         )
 
 
@@ -119,6 +143,7 @@ class LoadedData(BaseModel):
     mbands: Dict[str, Dict[int, int]]
     mantigens: Dict[str, List[str]]
     antigen_defaults: Dict[str, str]
+    broad_split: Dict[str, Dict[str, Any]]
 
 
 BaseData = DataLoader().base_data

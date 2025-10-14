@@ -28,30 +28,30 @@
   <header
     class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 px-3 mx-auto d-flex align-items-center justify-content-between fixed-top border-bottom bg-white">
     <div class="fs-3">
-      <a href="/" class="nav-link" title="🧮 Calculated Reaction Frequency Calculator" data-bs-toggle="tooltip"
+      <a href="/" class="nav-link" title="🧮 Calculated Reaction Frequency Calculator"
         data-bs-placement="bottom">
         <i class="bi bi-calculator-fill text-primary"></i>
         <span class="text-secondary d-none d-sm-inline-block">cRF Calculator</span>
       </a>
     </div>
     <div class="d-flex align-items-center justify-content-between metrics">
-      <div class="metric" title="Calculated reaction frequency" data-bs-toggle="tooltip" data-bs-placement="bottom">
+      <div class="metric" title="Calculated reaction frequency" data-bs-placement="bottom">
         <i>cRF:</i>
         <span id="crf-text">0%</span>
       </div>
-      <div class="metric toggle-hide" title="Matchability point" data-bs-toggle="tooltip" data-bs-placement="bottom">
+      <div class="metric toggle-hide" title="Matchability point" data-bs-placement="bottom">
         <i>Mp:</i>
         <span id="mp-text">0</span>
       </div>
-      <div class="metric toggle-hide" title="Favourably matched" data-bs-toggle="tooltip" data-bs-placement="bottom">
+      <div class="metric toggle-hide" title="Favourably matched" data-bs-placement="bottom">
         <i>Fm:</i>
         <span id="fm-text">0</span>
       </div>
-      <div class="metric" title="ABO-identical donors" data-bs-toggle="tooltip" data-bs-placement="bottom">
+      <div class="metric" title="ABO-identical donors" data-bs-placement="bottom">
         <i>Ad:</i>
         <span id="avd-text">0</span>
       </div>
-      <button class="btn metric-toggle" id="id_dp-toggle" data-bs-toggle="tooltip" data-bs-placement="bottom">
+      <button class="btn metric-toggle" id="id_dp-toggle">
         <i class="bi bi-toggle2-on"><small>A</small></i>
       </button>
     </div>
@@ -61,7 +61,7 @@
       <div class="col-12 col-xxl-5">
         <div class="row py-2">
           <div class="col-2 col-sm-3">
-            <span class="pe-3 text-muted" title="Recipient blood group" data-bs-toggle="tooltip"
+            <span class="pe-3 text-muted" title="Recipient blood group"
               data-bs-placement="bottom">
               <i class="bi bi-droplet-half text-danger"></i>
               <span class="d-none d-xxl-inline-block small">Blood</span>
@@ -81,7 +81,7 @@
       <div class="col-xxl-2 d-none d-xxl-block"></div>
       <div class="col-12 col-xxl-5">
         <div class="py-2 d-flex justify-content-between">
-          <div class="text-muted" title="Recipient HLA-B and DRB1 types" data-bs-toggle="tooltip"
+          <div class="text-muted" title="Recipient HLA-B and DRB1 types"
             data-bs-placement="bottom">
             <i class="bi bi-person-standing text-info"></i>
             <span class="d-none d-xxl-inline-block small">HLA-B/DR</span>
@@ -144,7 +144,7 @@
           aria-labelledby="selected-tab">
           <div class="px-3" id="id-specificities"></div>
           <button id="btn-copy-specs" class="btn btn-sm position-absolute top-0 end-0 pt-0"
-            title="☑️ copy antibody specificities" data-bs-toggle="tooltip" data-bs-placement="left">
+            title="☑️ copy antibody specificities" data-bs-placement="left">
             <i id="id-copy-icon" class="bi bi-copy text-muted"></i>
             <span id="id-copy-msg" class="small text-muted d-none">Copied!</span>
           </button>
@@ -184,7 +184,7 @@
         <div class="d-flex align-items-center justify-content-center bg-light p-0 m-0">
           <span class="text-muted ps-2 align-middle small">Profiles:</span>
           <button id="btn-log-data" class="btn position-relative" title="➕ Add current profile to memory"
-            data-bs-toggle="tooltip" data-bs-placement="top">
+            data-bs-placement="top">
             <i class="bi bi-plus-circle text-warning"></i>
             Add
             <span id="profile-count-badge"
@@ -194,7 +194,7 @@
             </span>
           </button>
           <button id="btn-export-csv" class="btn" style="min-width: 100px" title="📋 Copy stored profiles to clipboard"
-            data-bs-toggle="tooltip" data-bs-placement="top">
+            data-bs-placement="top">
             <i id="export-copy-icon" class="bi bi-clipboard text-primary"></i>
             <span id="export-copy-msg" class="small text-muted d-none">Copied!</span>
             <span id="export-copy-text">Copy</span>

@@ -1,43 +1,52 @@
-document.addEventListener("DOMContentLoaded", () => {
-  // Initialize Bootstrap tooltips
-  const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-  const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-    return new bootstrap.Tooltip(tooltipTriggerEl, {
-      trigger: 'hover focus',
-      delay: { show: 500, hide: 100 },
-      animation: true,
-      html: false
-    });
-  });
+document.addEventListener("DOMContentLoaded", async () => {
+  // Fetch broad/split mapping
+  try {
+    const response = await fetch('/broad-split/');
+    const data = await response.json();
+    broadToSplits = data.broad_to_splits;
+    splitToBroad = data.split_to_broad;
+  } catch (error) {
+    console.error('Failed to load broad/split mapping:', error);
+  }
   
-  // Remove title attributes from elements with Bootstrap tooltips to prevent double tooltips
-  tooltipTriggerList.forEach(function (element) {
-    if (element.hasAttribute('title')) {
+  // Initialize Bootstrap tooltips for ALL elements with title attribute
+  // Wrapped in setTimeout to prevent Bootstrap's auto-initialization race condition
+  setTimeout(() => {
+    const allTooltipElements = document.querySelectorAll('[title], [data-bs-title]');
+    
+    allTooltipElements.forEach(function (element) {
+      // Skip elements that have Bootstrap components (tabs, offcanvas, etc.)
+      // These components don't play nicely with tooltips
+      if (element.hasAttribute('data-bs-toggle')) {
+        const toggleValue = element.getAttribute('data-bs-toggle');
+        if (toggleValue === 'tab' || toggleValue === 'offcanvas') {
+          return;
+        }
+      }
+      
+      // Dispose any existing tooltip first
+      const existingTooltip = bootstrap.Tooltip.getInstance(element);
+      if (existingTooltip) {
+        existingTooltip.dispose();
+      }
+      
+      const titleText = element.getAttribute('title') || element.getAttribute('data-bs-title');
+      if (!titleText) return;
+      
+      // Remove title to prevent native tooltip
       element.removeAttribute('title');
-    }
-  });
-  
-  // Initialize tooltips for elements with conflicting data-bs-toggle attributes
-  const conflictingTooltips = [
-    '#selected-tab',
-    '#input-tab', 
-    'a[data-bs-target="#offcanvasInfo"]',
-    'a[data-bs-target="#offcanvasHelp"]',
-    'a[data-bs-target="#offcanvasMatchCount"]'
-  ];
-  
-  conflictingTooltips.forEach(function(selector) {
-    const element = document.querySelector(selector);
-    if (element && element.hasAttribute('title')) {
+      element.removeAttribute('data-bs-title');
+      
+      // Create Bootstrap tooltip
       new bootstrap.Tooltip(element, {
+        title: titleText,
         trigger: 'hover focus',
         delay: { show: 500, hide: 100 },
         animation: true,
         html: false
       });
-      element.removeAttribute('title');
-    }
-  });
+    });
+  }, 100); // Small delay to let Bootstrap's auto-init finish first
   
   recalculate();
 });
@@ -48,8 +57,51 @@ const toggleOffIcon = "bi-toggle2-off";
 // Global variable to store the latest API response data
 let currentApiData = null;
 
+// Global variables for broad/split antigen mappings
+let broadToSplits = {};
+let splitToBroad = {};
+
 // Global array to store accumulated flattened data
 let storedData = [];
+
+// Handle broad/split antigen relationships
+const handleBroadSplitRelationship = (antigenName, isChecked) => {
+  // Check if this is a broad antigen
+  if (broadToSplits[antigenName]) {
+    const splits = broadToSplits[antigenName];
+    splits.forEach(split => {
+      const splitCheckbox = document.getElementById(`id_${split}`);
+      if (splitCheckbox) {
+        splitCheckbox.checked = isChecked;
+      }
+    });
+  }
+  
+  // Check if this is a split antigen
+  if (splitToBroad[antigenName]) {
+    const broad = splitToBroad[antigenName];
+    const broadCheckbox = document.getElementById(`id_${broad}`);
+    if (!broadCheckbox) return;
+    
+    const allSplits = broadToSplits[broad];
+    
+    if (isChecked) {
+      // Split was checked - check if all splits are now checked
+      const allSplitsChecked = allSplits.every(split => {
+        const cb = document.getElementById(`id_${split}`);
+        return cb && cb.checked;
+      });
+      if (allSplitsChecked) {
+        broadCheckbox.checked = true;
+      }
+    } else {
+      // Split was unchecked - uncheck the broad if it's checked
+      if (broadCheckbox.checked) {
+        broadCheckbox.checked = false;
+      }
+    }
+  }
+};
 
 // recalculate the cRF, Mb, and AvD
 const recalculate = () => {
@@ -63,6 +115,11 @@ const AntigenCheckBoxes = document.querySelectorAll(".antigen-checkbox");
 
 AntigenCheckBoxes.forEach((checkbox) => {
   checkbox.addEventListener("change", function() {
+    const antigenName = this.value; // e.g., "A19" or "A29"
+    
+    // Handle broad/split relationships FIRST
+    handleBroadSplitRelationship(antigenName, this.checked);
+    
     // Extract locus from checkbox class
     const locus = Array.from(this.classList)
       .filter((cls) => cls.startsWith("antigen-"))[0]
@@ -142,24 +199,27 @@ const calculate = (antigenList) => {
       document.getElementById("crf-text").textContent = (data.results.crf * 100).toFixed(2) + "%";
       document.getElementById("avd-text").textContent = data.results.available;
       const dpToggle = document.getElementById("id_dp-toggle");
-      dpToggle.title = `Total donors: ${data.total}`;
-      dpToggle.dataset.bsOriginalTitle = dpToggle.title;
-      dpToggle.dataset.bsToggle = "tooltip";
-      dpToggle.dataset.bsPlacement = "bottom";
       
-      // Initialize tooltip for the toggle button since it's set dynamically
-      const existingTooltip = bootstrap.Tooltip.getInstance(dpToggle);
-      if (existingTooltip) {
-        existingTooltip.dispose();
+      // Update or create tooltip for the toggle button
+      let dpTooltip = bootstrap.Tooltip.getInstance(dpToggle);
+      const tooltipContent = `Total donors: ${data.total}`;
+      
+      if (dpTooltip) {
+        // Update existing tooltip's title
+        dpToggle.setAttribute('data-bs-original-title', tooltipContent);
+        dpTooltip.setContent({ '.tooltip-inner': tooltipContent });
+      } else {
+        // Create new tooltip on first calculation (without data-bs-toggle attribute)
+        dpTooltip = new bootstrap.Tooltip(dpToggle, {
+          title: tooltipContent,
+          trigger: 'hover focus',
+          delay: { show: 500, hide: 100 },
+          animation: true,
+          html: false,
+          placement: 'bottom'
+        });
       }
-      new bootstrap.Tooltip(dpToggle, {
-        trigger: 'hover focus',
-        delay: { show: 500, hide: 100 },
-        animation: true,
-        html: false
-      });
-      // Remove title attribute to prevent double tooltips
-      dpToggle.removeAttribute('title');
+      
       document.getElementById("mp-text").textContent = data.results.matchability;
       document.getElementById("fm-text").textContent = data.results.favourable;
 

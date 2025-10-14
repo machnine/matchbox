@@ -60,3 +60,9 @@ async def calc(
     )
     results = calculator.calculate()
     return {"bg": bg, "specs": specs, "results": results, "total": total, "recip_hla": recip_hla}
+
+
+@router.get("/broad-split/")
+async def broad_split(data=Depends(load_data)):
+    """get broad/split antigen mappings"""
+    return data.broad_split
