@@ -68,3 +68,6 @@ To use Google Analytics, add the environment variable at docker run
 ```bash
 docker run -d -p 4000:80 -e GA_TRACKING_ID=G-YOUR_TRAKCKING_ID --restart always matchbox:latest
 ```
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
