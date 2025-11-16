@@ -112,6 +112,42 @@ body {
   cursor: pointer;
 }
 
+/* Blood group radio buttons styling */
+.blood-group-option {
+  position: relative;
+}
+
+.blood-group-option input[type="radio"] {
+  display: none;
+}
+
+.blood-group-option label {
+  display: inline-block;
+  padding: 0.2rem 0.75rem;
+  border: 2px solid #dee2e6;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.blood-group-option label:hover {
+  border-color: #93c5fd;
+  background-color: #f0f9ff;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+}
+
+.blood-group-option input[type="radio"]:checked + label {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: white;
+  border-color: #60a5fa;
+  font-weight: 600;
+  box-shadow: 0 4px 8px rgba(96, 165, 250, 0.25);
+  transform: translateY(-1px);
+}
+
 /* consistent width for recipient HLA select dropdowns */
 .recip-hla-select {
   width: 70px;

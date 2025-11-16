@@ -173,7 +173,7 @@ const displaySelectedAntigens = (antigenList) => {
           `<span class="ps-1 spec-span" id="span-${ag.name}" ondblclick="toggleCheckbox('id_${ag.name}')">${ag.name}</span>`
       )
       .join(",<wbr>");
-    return `<span class="crf-locus crf-bgcolor-${locus.toLowerCase()}">${antigenNames}</span>`;
+    return `<span class="pe-1 crf-locus crf-bgcolor-${locus.toLowerCase()}">${antigenNames}</span>`;
   });
 
   // Update specs div
