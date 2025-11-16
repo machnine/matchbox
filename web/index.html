@@ -101,7 +101,7 @@
     </div>
 
     {% for locus, ags in antigens.items() %}
-    <div class="row my-2 py-1 crf-locus crf-bgcolor-{{ locus.lower() }}" id="id_{{ locus }}">
+    <div class="row my-2 py-2 crf-locus crf-bgcolor-{{ locus.lower() }}" id="id_{{ locus }}">
       <div class="col-1 fw-bold text-muted crf-locus-name" id="id_locus-{{locus}}">{{ locus }}</div>
       <div class="col-11 row">
         {% for ag in ags %}

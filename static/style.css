@@ -3,27 +3,35 @@ body {
 }
 .crf-locus {
   border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.crf-locus:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 .crf-bgcolor-a {
-  background-color: #fdd;
+  background-color: #ffe5e5;
 }
 .crf-bgcolor-b {
-  background-color: #dff;
+  background-color: #e0f2ff;
 }
 .crf-bgcolor-bw {
-  background-color: #eef;
+  background-color: #f3e8ff;
 }
 .crf-bgcolor-cw {
-  background-color: #dfd;
+  background-color: #dcfce7;
 }
 .crf-bgcolor-dr {
-  background-color: #ffd;
+  background-color: #fef3c7;
 }
 .crf-bgcolor-dq {
-  background-color: #ddf;
+  background-color: #fce7f3;
 }
 .crf-bgcolor-dpb {
-  background-color: #fdf;
+  background-color: #e0e7ff;
 }
 
 .metrics > div.metric,
@@ -91,4 +99,56 @@ body {
 .recip-hla-select {
   width: 70px;
   min-width: 70px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease;
+}
+
+.recip-hla-select:hover {
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
+}
+
+.recip-hla-select:focus {
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* tab navigation styling */
+.nav-tabs .nav-link {
+  color: #6c757d;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.nav-tabs .nav-link:hover {
+  color: #495057;
+  opacity: 0.8;
+}
+
+.nav-tabs .nav-link.active {
+  color: #212529;
+  font-weight: 600;
+  border-color: #dee2e6 #dee2e6 transparent;
+}
+
+
+/* card styling for tab content */
+#antigenTabsContent {
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease;
+}
+
+#antigenTabsContent:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* card styling for footer sections */
+.bg-light {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease;
+}
+
+.bg-light:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
