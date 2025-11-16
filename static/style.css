@@ -1,6 +1,23 @@
 body {
   font-size: 1rem;
 }
+
+/* Gradient text for site title */
+.gradient-text {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+}
+
+.gradient-icon {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 .crf-locus {
   border-radius: 5px;
   border: 1px solid rgba(0, 0, 0, 0.08);
