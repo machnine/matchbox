@@ -362,6 +362,10 @@ const processInputAntigens = (inputText) => {
     .split(/[\s,\t]+/)
     .map(ag => {
       ag = ag.trim().toUpperCase();
+      // Convert DPB1*0n or DPB1*n format to DPBn (strip 1* and leading zeros)
+      if (ag.match(/^DPB1\*0*\d+$/i)) {
+        ag = ag.replace(/^DPB1\*0*(\d+)$/i, 'DPB$1');
+      }
       // Convert Cn/cn to CWn
       if (ag.match(/^C\d+$/i)) {
         ag = ag.replace(/^C(\d+)$/i, 'CW$1');
