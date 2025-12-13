@@ -357,9 +357,9 @@ const processInputAntigens = (inputText) => {
     checkbox.checked = false;
   });
   
-  // Split on commas or spaces and clean up each antigen
+  // Split on commas, tabs, spaces, or any combination of them
   const inputAntigens = inputText
-    .split(/[,\s]+/)
+    .split(/[\s,\t]+/)
     .map(ag => {
       ag = ag.trim().toUpperCase();
       // Convert Cn/cn to CWn
