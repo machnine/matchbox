@@ -30,6 +30,12 @@ async def index(request: Request, data=Depends(load_data)):
     return templates.TemplateResponse("index.html", context)
 
 
+@router.get("/crf-explainer", response_class=HTMLResponse)
+async def crf_explainer(request: Request):
+    """cRF explainer page"""
+    return templates.TemplateResponse("crf-explainer.html", {"request": request})
+
+
 @router.get("/calc/")
 @limiter.limit("60/minute", error_message="Too many requests, slow down!")
 async def calc(
