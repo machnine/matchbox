@@ -7,27 +7,21 @@
 </div>
 <div class="offcanvas-body xsmall">
   <p class="fw-bold">Calculator results display:</p>
-  <img src="{{ url_for('static', path='results-display.png') }}" height="30" width="330" class="mb-2"
+  <img
+    src="{{ url_for('static', path='results-display.png') }}"
+    height="30"
+    width="330"
+    class="mb-2"
     alt="result display image" />
   <ul class="list-group">
     <li class="list-group-item">
-      <i class="text-danger">cRF</i> - calculated reaction frequency
+      <a href="/crf-explainer.html"><i class="text-danger">cRF</i> - calculated reaction frequency</a>
     </li>
-    <li class="list-group-item">
-      <i class="text-primary">Mp</i> - calculated matchability point
-    </li>
-    <li class="list-group-item">
-      <i class="text-warning">Fm</i> - favourably matched donors
-    </li>
-    <li class="list-group-item">
-      <i class="text-info">Ad</i> - available HLA compatible donors/total donors
-    </li>
-    <li class="list-group-item">
-      <i class="text-success bi bi-toggle2-on">A</i> all 10,000 donors
-    </li>
-    <li class="list-group-item">
-      <i class="text-success bi bi-toggle2-off">D</i> only donors with HLA-DPB1 types
-    </li>
+    <li class="list-group-item"><i class="text-primary">Mp</i> - calculated matchability point</li>
+    <li class="list-group-item"><i class="text-warning">Fm</i> - favourably matched donors</li>
+    <li class="list-group-item"><i class="text-info">Ad</i> - available HLA compatible donors/total donors</li>
+    <li class="list-group-item"><i class="text-success bi bi-toggle2-on">A</i> all 10,000 donors</li>
+    <li class="list-group-item"><i class="text-success bi bi-toggle2-off">D</i> only donors with HLA-DPB1 types</li>
   </ul>
 
   <hr />
@@ -65,8 +59,8 @@
   <p>
     For each blood group, patients are assigned to an
     <i class="text-primary">Mp</i>
-    band based on the maximum number of favourably matched donors (<i class="text-warning">Fm</i>) they have.
-    The <i class="text-primary">Mp</i> bands are defined by specific <i class="text-warning">Fm</i>
+    band based on the maximum number of favourably matched donors (<i class="text-warning">Fm</i>) they have. The
+    <i class="text-primary">Mp</i> bands are defined by specific <i class="text-warning">Fm</i>
     threshold values as outlined in the table above.
   </p>
   <p>
@@ -83,8 +77,7 @@
   </p>
   <p>
     The calculation is based on <b>broad</b> HLA specificities. For determining favourable matches (levels 1 and 2),
-    only HLA-B and DRB1 are needed: HLA-A does
-    not affect this categorisation.
+    only HLA-B and DRB1 are needed: HLA-A does not affect this categorisation.
   </p>
   <table class="table table-sm text-center table-bordered table-striped">
     <tr>

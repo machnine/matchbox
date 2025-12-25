@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="A plain-language guide to cPRA, cRF, and vPRA — the numbers that estimate how hard it is to find a compatible organ donor." />
+    <meta
+      name="keywords"
+      content="cPRA, cRF, vPRA, transplant compatibility, kidney transplant, HLA antibodies, sensitisation, organ donation" />
+    <title>What is cPRA? Understanding Your Transplant Compatibility Score</title>
+    <style>
+      :root {
+        --primary: #2c5282;
+        --primary-light: #4299e1;
+        --text: #2d3748;
+        --text-light: #718096;
+        --bg: #ffffff;
+        --bg-alt: #f7fafc;
+        --border: #e2e8f0;
+        --accent: #ed8936;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+        line-height: 1.7;
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      .container {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      h1 {
+        font-size: 2rem;
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
+      }
+
+      .subtitle {
+        color: var(--text-light);
+        font-size: 1.1rem;
+      }
+
+      h2 {
+        font-size: 1.4rem;
+        color: var(--primary);
+        margin: 2.5rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--primary-light);
+      }
+
+      p {
+        margin-bottom: 1rem;
+      }
+
+      .highlight-box {
+        background: var(--bg-alt);
+        border-left: 4px solid var(--primary-light);
+        padding: 1.25rem 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 0 8px 8px 0;
+      }
+
+      .highlight-box p:last-child {
+        margin-bottom: 0;
+      }
+
+      .key-point {
+        background: linear-gradient(135deg, #ebf8ff 0%, #e6fffa 100%);
+        border: 1px solid #b2f5ea;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      .key-point .number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--primary);
+      }
+
+      .key-point .label {
+        color: var(--text-light);
+        font-size: 0.95rem;
+      }
+
+      .scale {
+        display: flex;
+        justify-content: space-between;
+        align-items: stretch;
+        margin: 1.5rem 0;
+        gap: 1rem;
+      }
+
+      .scale-item {
+        flex: 1;
+        text-align: center;
+        padding: 1rem;
+        border-radius: 8px;
+      }
+
+      .scale-item.low {
+        background: #c6f6d5;
+        border: 1px solid #9ae6b4;
+      }
+
+      .scale-item.medium {
+        background: #fefcbf;
+        border: 1px solid #f6e05e;
+      }
+
+      .scale-item.high {
+        background: #fed7d7;
+        border: 1px solid #fc8181;
+      }
+
+      .scale-item .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        display: block;
+      }
+
+      .scale-item .meaning {
+        font-size: 0.85rem;
+        color: var(--text-light);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+        font-size: 0.95rem;
+      }
+
+      th,
+      td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+
+      th {
+        background: var(--bg-alt);
+        font-weight: 600;
+        color: var(--primary);
+      }
+
+      tr:hover {
+        background: var(--bg-alt);
+      }
+
+      .analogy {
+        font-style: italic;
+        color: var(--text-light);
+        padding-left: 1rem;
+        border-left: 3px solid var(--accent);
+        margin: 1rem 0;
+      }
+
+      ul {
+        margin: 1rem 0 1rem 1.5rem;
+      }
+
+      li {
+        margin-bottom: 0.5rem;
+      }
+
+      footer {
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border);
+        text-align: center;
+        color: var(--text-light);
+        font-size: 0.9rem;
+      }
+
+      footer a {
+        color: var(--primary-light);
+      }
+
+      @media (max-width: 600px) {
+        h1 {
+          font-size: 1.6rem;
+        }
+
+        .scale {
+          flex-direction: column;
+        }
+
+        table {
+          font-size: 0.85rem;
+        }
+
+        th,
+        td {
+          padding: 0.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>What is cPRA/cRF/vPRA?</h1>
+        <p class="subtitle">Understanding your transplant compatibility score</p>
+      </header>
+
+      <article>
+        <p>
+          If you're waiting for a kidney transplant, you may have heard terms like <strong>cPRA</strong>,
+          <strong>cRF</strong>, or <strong>vPRA</strong>. These numbers estimate how difficult it will be to find a
+          compatible donor for you. This guide explains what they mean and why they matter.
+        </p>
+
+        <h2>The problem: your immune system has a memory</h2>
+
+        <p>
+          Your body can distinguish "self" from "foreign" using proteins called <strong>HLA</strong> (Human Leukocyte
+          Antigens). These proteins sit on the surface of your cells like name badges, identifying them as yours.
+        </p>
+
+        <p>
+          When you encounter foreign HLA — through a previous transplant, pregnancy, or blood transfusion — your immune
+          system may create <strong>antibodies</strong> against those specific HLA types. These antibodies remember what
+          they've seen.
+        </p>
+
+        <div class="highlight-box">
+          <p>
+            If a donor has HLA types that match antibodies you've developed, your body would attack the transplanted
+            organ immediately. This is called a <strong>positive crossmatch</strong>, and it means that donor isn't
+            suitable for you.
+          </p>
+        </div>
+
+        <p>
+          People who have developed these antibodies are called <strong>"sensitised"</strong>. The more antibodies you
+          have, and the more common the HLA types they target, the fewer donors will be compatible with you.
+        </p>
+
+        <h2>The metric: one number that summarises your situation</h2>
+
+        <p>cPRA and its equivalents answer a simple question:</p>
+
+        <div class="key-point">
+          <p class="label">Out of 100 random donors, how many would be</p>
+          <p class="number">incompatible?</p>
+        </div>
+
+        <div class="scale">
+          <div class="scale-item low">
+            <span class="value">0%</span>
+            <span class="meaning">Compatible with almost everyone</span>
+          </div>
+          <div class="scale-item medium">
+            <span class="value">85%</span>
+            <span class="meaning">15 in 100 donors could work</span>
+          </div>
+          <div class="scale-item high">
+            <span class="value">99%</span>
+            <span class="meaning">Only 1 in 100 donors could work</span>
+          </div>
+        </div>
+
+        <p>
+          A higher number means a longer wait and fewer organ offers. Someone with a cPRA of 99% might wait years for a
+          compatible donor to become available.
+        </p>
+
+        <h2>Different names, same concept</h2>
+
+        <p>Different countries use different names for essentially the same metric:</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Region</th>
+              <th>Name</th>
+              <th>Stands for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="https://optn.transplant.hrsa.gov/">USA</a> + rest of the world</td>
+              <td>cPRA</td>
+              <td>Calculated Panel Reactive Antibody</td>
+            </tr>
+            <tr>
+              <td><a href="https://www.odt.nhs.uk/transplantation/">UK</a></td>
+              <td>cRF</td>
+              <td>Calculated Reaction Frequency</td>
+            </tr>
+            <tr>
+              <td><a href="https://www.eurotransplant.org/">Eurotransplant</a></td>
+              <td>vPRA</td>
+              <td>Virtual Panel Reactive Antibody</td>
+            </tr>            
+          </tbody>
+        </table>
+
+        <p class="analogy">Think of it like "petrol" versus "gas" — different words for the same thing.</p>
+
+        <h2>Why does this number matter?</h2>
+
+        <p>Your cPRA/cRF affects your transplant journey in several ways:</p>
+
+        <ul>
+          <li>
+            <strong>Allocation priority:</strong> Highly sensitised patients often receive extra priority points,
+            recognising that compatible organs are rare for them.
+          </li>
+          <li>
+            <strong>Offer decisions:</strong> When an organ becomes available, your transplant team uses this number to
+            quickly assess whether it's worth pursuing.
+          </li>
+          <li>
+            <strong>Special programmes:</strong> Some treatments are only available to patients above certain
+            thresholds. In the UK, for example, the desensitisation drug imlifidase is only offered to patients with cRF
+            of 99% or higher.
+          </li>
+        </ul>
+
+        <h2>The bottom line</h2>
+
+        <p>
+          cPRA, cRF, and vPRA are different names for a metric that estimates how hard it is to find you a compatible
+          donor. A higher number means fewer compatible donors exist, which typically means a longer wait.
+        </p>
+
+        <p>
+          If you'd like to know your <a href="https://calc.oxfordgenes.com/" title="cRF calculator">cRF/cPRA/vPRA score</a>, ask your transplant team — they can explain what it means for your
+          situation.
+        </p>
+      </article>
+
+      <footer>
+        <p>This information is for educational purposes and does not replace advice from your transplant team.</p>
+        <p style="margin-top: 0.5rem"><a href="https://calc.oxfordgenes.com/" title="cRF calculator">Back to the cRF calculator</a></p>
+      </footer>
+    </div>
+  </body>
+</html>
