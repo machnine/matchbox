@@ -9,7 +9,7 @@ class LogManager:
 
     def __init__(self, log_dir_name="logs"):
         self.log_dir_name = log_dir_name
-        self.log_dir = Path(self.log_dir_name)
+        self.log_dir = Path(__file__).resolve().parent.parent / self.log_dir_name
         self.access_log_file = "access.log"
         self.error_log_file = "error.log"
         self.setup_directory()
@@ -25,7 +25,11 @@ class LogManager:
         for log_file in [self.access_log_file, self.error_log_file]:
             file_path = self.log_dir / log_file
             if not file_path.exists():
-                file_path.touch()
+                try:
+                    file_path.touch()
+                except OSError:
+                    # Logging should not prevent the app or test suite from starting.
+                    continue
 
     def get_logger(self, file_name, log_source=None, log_level=logging.INFO):
         """Get logger configured with file handler and formatter."""
@@ -34,7 +38,16 @@ class LogManager:
         logger.setLevel(log_level)
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-        file_handler = logging.FileHandler(log_file_path)
+        resolved_path = str(log_file_path.resolve())
+        for handler in logger.handlers:
+            if isinstance(handler, logging.FileHandler) and Path(handler.baseFilename) == Path(resolved_path):
+                return logger
+
+        try:
+            file_handler = logging.FileHandler(log_file_path)
+        except OSError:
+            file_handler = logging.StreamHandler()
+
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
