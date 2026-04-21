@@ -1,3 +1,56 @@
+// Restore state from URL query params, matching the /calc/ API contract:
+//   ?bg=O&specs=A1,B7,DR4&recip_hla=B44,DR7&donor_set=0
+// `specs` and `recip_hla` accept comma-separated values or repeated params.
+const restoreFromQueryParams = () => {
+  const params = new URLSearchParams(window.location.search);
+
+  const bg = params.get('bg')?.toUpperCase();
+  if (bg) {
+    const bgRadio = document.getElementById(`id_${bg}`);
+    if (bgRadio) bgRadio.checked = true;
+  }
+
+  // donor_set: 0 = all donors (icon "A"), 1 = DP-only (icon "D").
+  // The toggle defaults to "A" in markup; flip it to "D" when donor_set=1.
+  const donorSet = params.get('donor_set');
+  if (donorSet === '1') {
+    const dpToggle = document.getElementById('id_dp-toggle');
+    const toggleIcon = dpToggle?.querySelector('i');
+    const label = toggleIcon?.querySelector('small');
+    if (toggleIcon && label && label.textContent === 'A') {
+      toggleIcon.classList.remove(toggleOnIcon);
+      toggleIcon.classList.add(toggleOffIcon);
+      label.textContent = 'D';
+      document.querySelectorAll('.toggle-hide').forEach(el => el.classList.add('d-none'));
+    }
+  }
+
+  const splitCSV = (values) =>
+    values.flatMap(v => v.split(',')).map(v => v.trim().toUpperCase()).filter(Boolean);
+
+  const recipValues = splitCSV(params.getAll('recip_hla'));
+  if (recipValues.length) {
+    const selects = Array.from(document.querySelectorAll('.recip-hla-select'));
+    recipValues.forEach(val => {
+      for (const sel of selects) {
+        if (sel.value) continue;
+        const match = Array.from(sel.options).find(opt => opt.value.toUpperCase() === val);
+        if (match) {
+          sel.value = match.value;
+          break;
+        }
+      }
+    });
+  }
+
+  const specs = splitCSV(params.getAll('specs')).join(',');
+  if (specs) {
+    processInputAntigens(specs); // calls recalculate internally
+  } else {
+    recalculate();
+  }
+};
+
 document.addEventListener("DOMContentLoaded", async () => {
   // Fetch broad/split mapping
   try {
@@ -8,12 +61,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (error) {
     console.error('Failed to load broad/split mapping:', error);
   }
-  
+
   // Initialize Bootstrap tooltips for ALL elements with title attribute
   // Wrapped in setTimeout to prevent Bootstrap's auto-initialization race condition
   setTimeout(() => {
     const allTooltipElements = document.querySelectorAll('[title], [data-bs-title]');
-    
+
     allTooltipElements.forEach(function (element) {
       // Skip elements that have Bootstrap components (tabs, offcanvas, etc.)
       // These components don't play nicely with tooltips
@@ -23,20 +76,20 @@ document.addEventListener("DOMContentLoaded", async () => {
           return;
         }
       }
-      
+
       // Dispose any existing tooltip first
       const existingTooltip = bootstrap.Tooltip.getInstance(element);
       if (existingTooltip) {
         existingTooltip.dispose();
       }
-      
+
       const titleText = element.getAttribute('title') || element.getAttribute('data-bs-title');
       if (!titleText) return;
-      
+
       // Remove title to prevent native tooltip
       element.removeAttribute('title');
       element.removeAttribute('data-bs-title');
-      
+
       // Create Bootstrap tooltip
       new bootstrap.Tooltip(element, {
         title: titleText,
@@ -47,8 +100,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     });
   }, 100); // Small delay to let Bootstrap's auto-init finish first
-  
-  recalculate();
+
+  restoreFromQueryParams();
 });
 
 const toggleOnIcon = "bi-toggle2-on";
