@@ -34,7 +34,7 @@
         <span class="gradient-text d-none d-sm-inline-block">cRF Calculator</span>
       </a>
     </div>
-    <div class="d-flex align-items-center justify-content-between metrics">
+    <div class="d-flex align-items-center justify-content-between metrics" aria-live="polite" aria-busy="false">
       <div class="metric" title="Calculated reaction frequency" data-bs-placement="bottom">
         <i>cRF:</i>
         <span id="crf-text">0%</span>
@@ -187,7 +187,7 @@
         <div class="d-flex align-items-center justify-content-center ps-3">
           <span class="text-muted ps-2 align-middle small">Profiles:</span>
           <button id="btn-log-data" class="btn position-relative" title="➕ Add current profile to memory"
-            data-bs-placement="top">
+            data-bs-placement="top" disabled aria-disabled="true">
             <i class="bi bi-plus-circle text-warning"></i>
             Add
             <span id="profile-count-badge"

@@ -109,6 +109,54 @@ const toggleOffIcon = "bi-toggle2-off";
 
 // Global variable to store the latest API response data
 let currentApiData = null;
+let calculationGeneration = 0;
+let calculationController = null;
+
+const addProfileButton = document.getElementById("btn-log-data");
+const calculationMetrics = document.querySelector(".metrics");
+const metricIds = ["crf-text", "mp-text", "fm-text", "avd-text"];
+const matchCountIds = ["m12a", "m2b", "m3a", "m3b", "m4a", "m4b", "total-donors"];
+
+const setAddProfileEnabled = (enabled) => {
+  addProfileButton.disabled = !enabled;
+  addProfileButton.setAttribute("aria-disabled", String(!enabled));
+};
+
+const clearMatchCounts = () => {
+  matchCountIds.forEach((id) => {
+    document.getElementById(id).textContent = "";
+  });
+};
+
+const clearDonorTotalTooltip = () => {
+  const dpToggle = document.getElementById("id_dp-toggle");
+  bootstrap.Tooltip.getInstance(dpToggle)?.dispose();
+  dpToggle.removeAttribute("data-bs-original-title");
+};
+
+const setCalculationPending = () => {
+  currentApiData = null;
+  setAddProfileEnabled(false);
+  calculationMetrics.setAttribute("aria-busy", "true");
+  document.getElementById("crf-text").classList.remove("text-danger");
+  metricIds.forEach((id) => {
+    document.getElementById(id).textContent = "…";
+  });
+  clearMatchCounts();
+  clearDonorTotalTooltip();
+};
+
+const setCalculationFailed = () => {
+  currentApiData = null;
+  setAddProfileEnabled(false);
+  calculationMetrics.setAttribute("aria-busy", "false");
+  document.getElementById("crf-text").textContent = "Error";
+  document.getElementById("crf-text").classList.add("text-danger");
+  ["mp-text", "fm-text", "avd-text"].forEach((id) => {
+    document.getElementById(id).textContent = "—";
+  });
+  clearMatchCounts();
+};
 
 // Global variables for broad/split antigen mappings
 let broadToSplits = {};
@@ -237,8 +285,59 @@ const displaySelectedAntigens = (antigenList) => {
   inputArea.value = plainTextSpecs ? plainTextSpecs + ", " : "";
 };
 
+const renderCalculation = (data) => {
+  document.getElementById("crf-text").classList.remove("text-danger");
+  document.getElementById("crf-text").textContent = (data.results.crf * 100).toFixed(2) + "%";
+  document.getElementById("avd-text").textContent = data.results.available;
+  document.getElementById("mp-text").textContent = data.results.matchability ?? "—";
+  document.getElementById("fm-text").textContent = data.results.favourable ?? "—";
+
+  const dpToggle = document.getElementById("id_dp-toggle");
+  let dpTooltip = bootstrap.Tooltip.getInstance(dpToggle);
+  const tooltipContent = `Total donors: ${data.total}`;
+
+  if (dpTooltip) {
+    dpToggle.setAttribute("data-bs-original-title", tooltipContent);
+    dpTooltip.setContent({ ".tooltip-inner": tooltipContent });
+  } else {
+    dpTooltip = new bootstrap.Tooltip(dpToggle, {
+      title: tooltipContent,
+      trigger: "hover focus",
+      delay: { show: 500, hide: 100 },
+      animation: true,
+      html: false,
+      placement: "bottom"
+    });
+  }
+
+  clearMatchCounts();
+  if (data.results.match_counts) {
+    const mc = data.results.match_counts;
+    const convRatio = data.total / 10000; // convert DP only donor calcs to 10k donor scale
+    const counts = {
+      m12a: Math.round(mc.m12a / convRatio) || 0,
+      m2b: Math.round(mc.m2b / convRatio) || 0,
+      m3a: Math.round(mc.m3a / convRatio) || 0,
+      m3b: Math.round(mc.m3b / convRatio) || 0,
+      m4a: Math.round(mc.m4a / convRatio) || 0,
+      m4b: Math.round(mc.m4b / convRatio) || 0,
+    };
+    Object.entries(counts).forEach(([id, value]) => {
+      document.getElementById(id).textContent = value;
+    });
+    document.getElementById("total-donors").textContent = Object.values(counts).reduce(
+      (total, value) => total + value,
+      0
+    );
+  }
+};
+
 // calculate the cRF, Mb, and AvD based on the selected antigens
 const calculate = (antigenList) => {
+  const requestGeneration = ++calculationGeneration;
+  calculationController?.abort();
+  const requestController = new AbortController();
+  calculationController = requestController;
   const bg = document.querySelector("input[name='abo']:checked").value;
   const dpToggle = document.getElementById("id_dp-toggle");
   const dp = dpToggle.querySelector("i small").textContent === "A" ? 0 : 1;
@@ -248,7 +347,10 @@ const calculate = (antigenList) => {
     .filter((value) => value);
   const specs = antigenList.map((ag) => ag.name).join(",");
 
-  fetch(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}`)
+  setCalculationPending();
+  fetch(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}`, {
+    signal: requestController.signal,
+  })
     .then((response) => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -256,58 +358,17 @@ const calculate = (antigenList) => {
       return response.json();
     })
     .then((data) => {
-      // Store the API response data globally
+      if (requestGeneration !== calculationGeneration) return;
+      renderCalculation(data);
       currentApiData = data;
-      
-      document.getElementById("crf-text").textContent = (data.results.crf * 100).toFixed(2) + "%";
-      document.getElementById("avd-text").textContent = data.results.available;
-      const dpToggle = document.getElementById("id_dp-toggle");
-      
-      // Update or create tooltip for the toggle button
-      let dpTooltip = bootstrap.Tooltip.getInstance(dpToggle);
-      const tooltipContent = `Total donors: ${data.total}`;
-      
-      if (dpTooltip) {
-        // Update existing tooltip's title
-        dpToggle.setAttribute('data-bs-original-title', tooltipContent);
-        dpTooltip.setContent({ '.tooltip-inner': tooltipContent });
-      } else {
-        // Create new tooltip on first calculation (without data-bs-toggle attribute)
-        dpTooltip = new bootstrap.Tooltip(dpToggle, {
-          title: tooltipContent,
-          trigger: 'hover focus',
-          delay: { show: 500, hide: 100 },
-          animation: true,
-          html: false,
-          placement: 'bottom'
-        });
-      }
-      
-      document.getElementById("mp-text").textContent = data.results.matchability;
-      document.getElementById("fm-text").textContent = data.results.favourable;
-
-      if (data.results.match_counts) {
-        const mc = data.results.match_counts;
-        const convRatio = data.total / 10000; // convert DP only donor calcs to 10k donor scale
-        const m12a = Math.round(mc.m12a / convRatio) || 0;
-        const m12b = Math.round(mc.m12b / convRatio) || 0;
-        const m2b = Math.round(mc.m2b / convRatio) || 0;
-        const m3a = Math.round(mc.m3a / convRatio) || 0;
-        const m3b = Math.round(mc.m3b / convRatio) || 0;
-        const m4a = Math.round(mc.m4a / convRatio) || 0;
-        const m4b = Math.round(mc.m4b / convRatio) || 0;
-        const total = m12a + m12b + m2b + m3a + m3b + m4a + m4b;        
-        document.getElementById("m12a").textContent = m12a;
-        document.getElementById("m2b").textContent = m2b;
-        document.getElementById("m3a").textContent = m3a;
-        document.getElementById("m3b").textContent = m3b;
-        document.getElementById("m4a").textContent = m4a;
-        document.getElementById("m4b").textContent = m4b;
-        document.getElementById("total-donors").textContent = total;
-      }
+      calculationMetrics.setAttribute("aria-busy", "false");
+      setAddProfileEnabled(true);
     })
     .catch((error) => {
+      if (requestGeneration !== calculationGeneration) return;
+      if (error.name === "AbortError") return;
       console.error(error);
+      setCalculationFailed();
     });
 };
 
@@ -461,7 +522,7 @@ document.getElementById('antigen-input').addEventListener('keypress', (event) =>
 });
 
 // Log current API data to console
-document.getElementById('btn-log-data').addEventListener('click', () => {
+addProfileButton.addEventListener('click', () => {
   if (currentApiData) {
     let removed = [];
     let added = [];
