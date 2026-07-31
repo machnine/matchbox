@@ -4,12 +4,13 @@ import os
 from collections import defaultdict
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from .calculator import Calculator
 from .data import load_data
+from .input_validation import AntigenValidationError, validate_recipient_hla, validate_specificities
 from .ratelimiter import limiter
 from .recipient import canonicalise_recipient_hla
 
@@ -56,10 +57,16 @@ async def calc(
         data.mantigens,
         data.broad_split.get("split_to_broad", {}),
     )
+    specs = [] if not specs else specs.split(",")
+    try:
+        validate_specificities(specs, data.antigens)
+        validate_recipient_hla(recip_hla_list, data.mantigens)
+    except AntigenValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.detail()) from exc
+
     recip_hla_dict = defaultdict(set)
     for hla in recip_hla_list:
         recip_hla_dict["B" if hla.startswith("B") else "DR"].add(hla)
-    specs = [] if not specs else specs.split(",")
 
     calculator = Calculator(
         donors=data.donors[donor_set],

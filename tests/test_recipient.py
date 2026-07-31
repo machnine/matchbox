@@ -9,8 +9,10 @@ MATCHABILITY_ANTIGENS = {
 
 SPLIT_TO_BROAD = {
     "B44": "B12",
+    "B45": "B12",
     "B51": "B5",
     "DR15": "DR2",
+    "DR16": "DR2",
     "DR17": "DR3",
     # These generic relationships must not replace canonical rare values.
     "B41": "B40",
@@ -44,10 +46,10 @@ def test_canonical_rare_values_win_over_generic_mapping():
 
 def test_sibling_splits_collapse_to_one_broad():
     canonical, conversions = canonicalise_recipient_hla(
-        ["B44", "B44", "DR15", "DR15"],
+        ["B44", "B45", "DR15", "DR16"],
         MATCHABILITY_ANTIGENS,
         SPLIT_TO_BROAD,
     )
 
     assert canonical == ["B12", "DR2"]
-    assert conversions == {"B44": "B12", "DR15": "DR2"}
+    assert conversions == {"B44": "B12", "B45": "B12", "DR15": "DR2", "DR16": "DR2"}

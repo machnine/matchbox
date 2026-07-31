@@ -4,6 +4,7 @@ import warnings
 from unittest.mock import MagicMock
 
 import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
 
 from api import api
@@ -23,6 +24,11 @@ mock_mbands = {
 mock_mantigens = {"B": ["B7", "B8", "B12", "B42", "B46"], "DR": ["DR3", "DR9"]}
 mock_data = MagicMock()
 mock_data.donors = (mock_donors, mock_donors)
+mock_data.antigens = {
+    "A": ["A1", "A43"],
+    "B": ["B7", "B8", "B12", "B42", "B46"],
+    "DR": ["DR3", "DR9", "DR17"],
+}
 mock_data.mantigens = mock_mantigens
 mock_data.mbands = mock_mbands
 mock_data.antigen_defaults = mock_ag_defaults
@@ -101,5 +107,31 @@ def test_calc_canonicalises_recipient_splits_before_matchability():
         assert split.json()["recip_hla"] == "B44,DR17"
         assert split.json()["recip_hla_used"] == ["B12", "DR3"]
         assert split.json()["recip_hla_conversions"] == {"B44": "B12", "DR17": "DR3"}
+    finally:
+        api.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("specs", ["A9999", "A1,", "A1B7", "CW13"])
+def test_calc_rejects_specificities_outside_exposed_vocabulary(specs):
+    api.dependency_overrides[load_data] = lambda: mock_data
+    try:
+        response = client.get("/calc/", params={"bg": "A", "specs": specs})
+
+        assert response.status_code == 422
+        assert response.json()["detail"]["field"] == "specs"
+    finally:
+        api.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("recip_hla", ["A1", "DQ5", "B999", "BW4", "B7,"])
+def test_calc_rejects_unsupported_recipient_hla(recip_hla):
+    api.dependency_overrides[load_data] = lambda: mock_data
+    try:
+        response = client.get("/calc/", params={"bg": "A", "recip_hla": recip_hla})
+
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert detail["field"] == "recip_hla"
+        assert detail["invalid"]
     finally:
         api.dependency_overrides.clear()
