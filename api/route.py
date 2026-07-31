@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from .calculator import Calculator
 from .data import load_data
 from .ratelimiter import limiter
+from .recipient import canonicalise_recipient_hla
 
 router = APIRouter()
 templates = Jinja2Templates(directory="web")
@@ -49,7 +50,12 @@ async def calc(
     """calculate matchability"""
     donors = data.donors[donor_set]
     total = len(donors)
-    recip_hla_list = recip_hla.split(",") if recip_hla else []
+    recip_hla_input = recip_hla.split(",") if recip_hla else []
+    recip_hla_list, recip_hla_conversions = canonicalise_recipient_hla(
+        recip_hla_input,
+        data.mantigens,
+        data.broad_split.get("split_to_broad", {}),
+    )
     recip_hla_dict = defaultdict(set)
     for hla in recip_hla_list:
         recip_hla_dict["B" if hla.startswith("B") else "DR"].add(hla)
@@ -65,7 +71,15 @@ async def calc(
         matchability_bands=data.mbands,
     )
     results = calculator.calculate()
-    return {"bg": bg, "specs": specs, "results": results, "total": total, "recip_hla": recip_hla}
+    return {
+        "bg": bg,
+        "specs": specs,
+        "results": results,
+        "total": total,
+        "recip_hla": recip_hla,
+        "recip_hla_used": recip_hla_list or None,
+        "recip_hla_conversions": recip_hla_conversions,
+    }
 
 
 @router.get("/broad-split/")

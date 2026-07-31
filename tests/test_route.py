@@ -1,14 +1,13 @@
 """Calculator API endpoint tests"""
 
 import warnings
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pandas as pd
 from fastapi.testclient import TestClient
 
 from api import api
 from api.route import load_data
-
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -27,6 +26,16 @@ mock_data.donors = (mock_donors, mock_donors)
 mock_data.mantigens = mock_mantigens
 mock_data.mbands = mock_mbands
 mock_data.antigen_defaults = mock_ag_defaults
+mock_data.broad_split = {
+    "broad_to_splits": {"B12": ["B44"], "DR3": ["DR17"]},
+    "split_to_broad": {
+        "B44": "B12",
+        "DR17": "DR3",
+        # Canonical rare values must not be replaced by generic mappings.
+        "B42": "B7",
+        "DR9": "DR4",
+    },
+}
 
 
 def test_calc_get_endpoint():
@@ -77,3 +86,20 @@ def test_calc_get_endpoint():
     assert results["matchability"] == 2
 
     api.dependency_overrides.clear()
+
+
+def test_calc_canonicalises_recipient_splits_before_matchability():
+    """API split input must score exactly like its matchability broad."""
+    api.dependency_overrides[load_data] = lambda: mock_data
+    try:
+        broad = client.get("/calc/", params={"bg": "A", "recip_hla": "B12,DR3"})
+        split = client.get("/calc/", params={"bg": "A", "recip_hla": "B44,DR17"})
+
+        assert broad.status_code == 200
+        assert split.status_code == 200
+        assert split.json()["results"] == broad.json()["results"]
+        assert split.json()["recip_hla"] == "B44,DR17"
+        assert split.json()["recip_hla_used"] == ["B12", "DR3"]
+        assert split.json()["recip_hla_conversions"] == {"B44": "B12", "DR17": "DR3"}
+    finally:
+        api.dependency_overrides.clear()
