@@ -76,8 +76,19 @@ def test_profile_contract_failure_disables_storing_and_surfaces_an_error():
     assert "setCalculationFailed()" in add_handler
 
 
-def test_pending_state_clears_the_previous_donor_total_tooltip():
+def test_pending_state_preserves_the_last_rendered_values_without_making_them_saveable():
     pending = SCRIPT.split("const setCalculationPending = () => {", 1)[1].split("};", 1)[0]
 
-    assert "clearDonorTotalTooltip()" in pending
+    assert "currentApiData = null" in pending
+    assert "setAddProfileEnabled(false)" in pending
+    assert 'calculationMetrics.setAttribute("aria-busy", "true")' in pending
+    assert "textContent" not in pending
+    assert "clearMatchCounts()" not in pending
+    assert "clearDonorTotalTooltip()" not in pending
+
+
+def test_failed_state_clears_the_previous_donor_total_tooltip():
+    failed = SCRIPT.split("const setCalculationFailed = () => {", 1)[1].split("};", 1)[0]
+
+    assert "clearDonorTotalTooltip()" in failed
     assert 'bootstrap.Tooltip.getInstance(dpToggle)?.dispose()' in SCRIPT

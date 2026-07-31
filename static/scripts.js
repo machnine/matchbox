@@ -114,7 +114,6 @@ let calculationController = null;
 
 const addProfileButton = document.getElementById("btn-log-data");
 const calculationMetrics = document.querySelector(".metrics");
-const metricIds = ["crf-text", "mp-text", "fm-text", "avd-text"];
 const matchCountIds = ["m12a", "m2b", "m3a", "m3b", "m4a", "m4b", "total-donors"];
 
 const setAddProfileEnabled = (enabled) => {
@@ -138,12 +137,6 @@ const setCalculationPending = () => {
   currentApiData = null;
   setAddProfileEnabled(false);
   calculationMetrics.setAttribute("aria-busy", "true");
-  document.getElementById("crf-text").classList.remove("text-danger");
-  metricIds.forEach((id) => {
-    document.getElementById(id).textContent = "…";
-  });
-  clearMatchCounts();
-  clearDonorTotalTooltip();
 };
 
 const setCalculationFailed = () => {
@@ -156,6 +149,7 @@ const setCalculationFailed = () => {
     document.getElementById(id).textContent = "—";
   });
   clearMatchCounts();
+  clearDonorTotalTooltip();
 };
 
 // Global variables for broad/split antigen mappings
