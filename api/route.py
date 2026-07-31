@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from .assets import asset_version
 from .calculator import Calculator
 from .data import load_data
 from .input_validation import AntigenValidationError, validate_recipient_hla, validate_specificities
@@ -18,6 +19,7 @@ from .schemas import CalculationResponse
 
 router = APIRouter()
 templates = Jinja2Templates(directory="web")
+templates.env.globals["asset_version"] = asset_version
 
 CALCULATION_CONTEXTS = {
     0: {

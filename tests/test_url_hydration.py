@@ -25,6 +25,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api import api
+from api.assets import asset_version
 from api.data import DataProvenance
 from api.route import load_data
 
@@ -77,6 +78,23 @@ def test_html_exposes_selectors_used_by_shared_url_contract():
     assert 'id="id_B7"' in html  # representative antigen checkbox from mock
     assert "mock-source.xlsb" in html
     assert "123,456" in html
+
+
+def test_html_fingerprints_local_static_assets():
+    """A changed asset must get a new URL so browsers cannot reuse stale code."""
+    html = client.get("/").text
+    assets = (
+        "bootstrap-5.2.3.min.css",
+        "style.css",
+        "favicon.ico",
+        "results-display.png",
+        "bootstrap-5.2.3.bundle.min.js",
+        "profile-export.js",
+        "scripts.js",
+    )
+
+    for asset in assets:
+        assert f"/static/{asset}?v={asset_version(asset)}" in html
 
 
 def test_scripts_js_declares_shared_url_contract():
