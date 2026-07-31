@@ -589,10 +589,10 @@ document.getElementById('btn-export-csv').addEventListener('click', () => {
   
   // Convert array fields to comma-separated strings for TSV and handle null values
   const tsvData = storedData.map(row => ({
-    'CRF (%)': row.crf || ' ',
-    'Matchability': row.matchability || ' ',
-    'Favourable': row.favourable || ' ',
-    'Available': row.available || ' ',
+    'CRF (%)': row.crf ?? ' ',
+    'Matchability': row.matchability ?? ' ',
+    'Favourable': row.favourable ?? ' ',
+    'Available': row.available ?? ' ',
     'Recipient HLA': row.recip_hla || ' ',
     'Unacceptable Specs': row.specs.length > 0 ? row.specs.join(',') : ' ',
     'Removed': row.removed.length > 0 ? row.removed.join(',') : ' ',
