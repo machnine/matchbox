@@ -1,14 +1,13 @@
 """Calculator API endpoint tests"""
 
 import warnings
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pandas as pd
 from fastapi.testclient import TestClient
 
 from api import api
 from api.route import load_data
-
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -71,7 +70,7 @@ def test_calc_get_endpoint():
     )
     results = response.json().get("results")
     assert response.status_code == 200
-    assert results["crf"] ==  0.2857142857142857
+    assert results["crf"] == 0.2857142857142857
     assert results["available"] == 35
     assert results["favourable"] == 35
     assert results["matchability"] == 2

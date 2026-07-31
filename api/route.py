@@ -1,19 +1,26 @@
 """routes"""
 
 import os
-from collections import defaultdict
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
-from .calculator import Calculator
+from .calculator import Calculator, parse_recipient_bdr
 from .data import load_data
+from .parser import parse_donor_type
 from .ratelimiter import limiter
 
 router = APIRouter()
 templates = Jinja2Templates(directory="web")
+
+
+class NormaliseRequest(BaseModel):
+    """a block of pasted antigen tokens"""
+
+    text: str
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -50,9 +57,9 @@ async def calc(
     donors = data.donors[donor_set]
     total = len(donors)
     recip_hla_list = recip_hla.split(",") if recip_hla else []
-    recip_hla_dict = defaultdict(set)
-    for hla in recip_hla_list:
-        recip_hla_dict["B" if hla.startswith("B") else "DR"].add(hla)
+    # an empty mapping must stay falsy: Calculator skips matchability entirely
+    # when no recipient type was supplied
+    recip_hla_dict = parse_recipient_bdr(recip_hla_list) if recip_hla_list else {}
     specs = [] if not specs else specs.split(",")
 
     calculator = Calculator(
@@ -72,3 +79,19 @@ async def calc(
 async def broad_split(data=Depends(load_data)):
     """get broad/split antigen mappings"""
     return data.broad_split
+
+
+@router.post("/normalise/")
+@limiter.limit("60/minute", error_message="Too many requests, slow down!")
+async def normalise(request: Request, body: NormaliseRequest, data=Depends(load_data)):
+    """normalise a list of pasted antigens against the cohort vocabulary
+
+    One normalisation for both pages. The rules (allele forms, C/CW, DP/DPB,
+    leading zeros, HLA- prefixes) live in api/parser.py; without this the cRF
+    page and the offer page would disagree about what a pasted token means.
+
+    Unmatched tokens come back with suggestions rather than being discarded.
+    """
+    vocabulary = [ag for ags in data.antigens.values() for ag in ags]
+    found, problems = parse_donor_type(body.text, vocabulary)
+    return {"antigens": found, "problems": problems, "ok": not problems}

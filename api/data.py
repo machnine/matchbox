@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Tuple
 import pandas as pd
 from pydantic import BaseModel
 
+from .cohort import dp_typed_mask
 from .logger import log_manager
 
 logger = log_manager.get_logger("error.log", log_source="data.py")
@@ -59,11 +60,14 @@ class DataLoader:
             return match.group(1)
 
     def _load_donors(self) -> Tuple[pd.DataFrame]:
-        """load data into memory"""
+        """load data into memory
+
+        Returns (all donors, DP-typed donors). The DP-typed predicate comes from
+        api/cohort.py so the tuple element here and the offer assessment's
+        DP-restricted cohort are the same set by construction.
+        """
         data = self._load_table(self.table_name)
-        # filter out donors with no dpb
-        dpb_cols = [col for col in data.columns if "DPB" in col]
-        donor_data = (data.copy(deep=False), data[data[dpb_cols].sum(axis=1) > 0].copy(deep=False))
+        donor_data = (data.copy(deep=False), data[dp_typed_mask(data)].copy(deep=False))
         # empty the donors variable
         data = None
         return donor_data
@@ -105,19 +109,16 @@ class DataLoader:
             cursor = self.conn.cursor()
             cursor.execute("SELECT Locus, Split, Broad FROM broad_split_mapping")
             rows = cursor.fetchall()
-            
+
             # Build broad_to_splits and split_to_broad mappings
             broad_to_splits = defaultdict(list)
             split_to_broad = {}
-            
+
             for _locus, split, broad in rows:
                 broad_to_splits[broad].append(split)
                 split_to_broad[split] = broad
-            
-            return {
-                "broad_to_splits": dict(broad_to_splits),
-                "split_to_broad": split_to_broad
-            }
+
+            return {"broad_to_splits": dict(broad_to_splits), "split_to_broad": split_to_broad}
         except sqlite3.Error as e:
             logger.error("Error loading broad/split mapping: %s", e)
             return {"broad_to_splits": {}, "split_to_broad": {}}

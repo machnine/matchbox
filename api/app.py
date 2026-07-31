@@ -8,6 +8,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from .logger import log_manager
+from .offer import router as offer_router
 from .ratelimiter import limiter
 from .route import router
 
@@ -28,6 +29,8 @@ def create_app():
 
     # include routes
     this_app.include_router(router)
+    # offer assessment: separate surface, shared data and cohort selection
+    this_app.include_router(offer_router)
     return this_app
 
 

@@ -404,50 +404,60 @@ const toggleCheckbox = (checkboxId) => {
 };
 
 // Parse and process input antigens
-const processInputAntigens = (inputText) => {
+//
+// Normalisation is done server-side via /normalise/ so this page and the offer
+// assessment page cannot disagree about what a pasted token means. The server
+// handles more forms than this function used to (HLA- prefixes, colon-form
+// alleles such as DRB1*04:01, leading zeros) and returns suggestions for
+// anything it cannot match.
+const processInputAntigens = async (inputText) => {
   // First clear all existing checkboxes
   document.querySelectorAll('.antigen-checkbox').forEach(checkbox => {
     checkbox.checked = false;
   });
-  
-  // Split on commas, tabs, spaces, or any combination of them
-  const inputAntigens = inputText
-    .split(/[\s,\t]+/)
-    .map(ag => {
-      ag = ag.trim().toUpperCase();
-      // Convert DPB1*0n or DPB1*n format to DPBn (strip 1* and leading zeros)
-      if (ag.match(/^DPB1\*0*\d+$/i)) {
-        ag = ag.replace(/^DPB1\*0*(\d+)$/i, 'DPB$1');
-      }
-      // Convert Cn/cn to CWn
-      if (ag.match(/^C\d+$/i)) {
-        ag = ag.replace(/^C(\d+)$/i, 'CW$1');
-      }
-      // Convert DPn/dpn to DPBn
-      if (ag.match(/^DP\d+$/i)) {
-        ag = ag.replace(/^DP(\d+)$/i, 'DPB$1');
-      }
-      return ag;
-    })
-    .filter(ag => ag.length > 0);
-  
+
+  let antigens = [];
+  let problems = [];
+  try {
+    const response = await fetch('/normalise/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: inputText }),
+    });
+    if (!response.ok) throw new Error(`normalise failed: ${response.status}`);
+    const result = await response.json();
+    antigens = result.antigens;
+    problems = result.problems;
+  } catch (error) {
+    // fall back to the raw tokens so a network failure degrades to the old
+    // exact-match behaviour rather than silently selecting nothing
+    console.error(error);
+    antigens = inputText.split(/[\s,\t]+/).map(ag => ag.trim().toUpperCase()).filter(Boolean);
+  }
+
   // Track which antigens weren't found
-  const notFound = [];
-  
+  const notFound = problems.map(p => p.token);
+
   // Process each antigen using centralized update handler
-  inputAntigens.forEach(ag => {
+  antigens.forEach(ag => {
     const checkboxId = `id_${ag}`;
-    const success = updateCheckbox(checkboxId, true);
-    if (!success) {
+    if (!updateCheckbox(checkboxId, true)) {
       notFound.push(ag);
     }
   });
-  
-  // Alert user of any antigens that weren't found
+
+  // Alert user of any antigens that weren't found, offering the server's
+  // suggestions where it had any
   if (notFound.length > 0) {
-    alert(`Could not find matches for: ${notFound.join(', ')}`);
+    const hints = problems
+      .filter(p => p.suggestions && p.suggestions.length)
+      .map(p => `${p.token} → ${p.suggestions.join(' / ')}`);
+    alert(
+      `Could not find matches for: ${notFound.join(', ')}`
+      + (hints.length ? `\n\nDid you mean:\n${hints.join('\n')}` : '')
+    );
   }
-  
+
   // Always recalculate, even if no antigens were found
   recalculate();
 };
