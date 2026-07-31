@@ -2,6 +2,7 @@
 
 import os
 from collections import defaultdict
+from datetime import UTC, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -13,9 +14,21 @@ from .data import load_data
 from .input_validation import AntigenValidationError, validate_recipient_hla, validate_specificities
 from .ratelimiter import limiter
 from .recipient import canonicalise_recipient_hla
+from .schemas import CalculationResponse
 
 router = APIRouter()
 templates = Jinja2Templates(directory="web")
+
+CALCULATION_CONTEXTS = {
+    0: {
+        "donor_cohort": "all_donors",
+        "calculation_mode": "all_donors_reference",
+    },
+    1: {
+        "donor_cohort": "dp_typed_only",
+        "calculation_mode": "dp_typed_subset",
+    },
+}
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -27,6 +40,7 @@ async def index(request: Request, data=Depends(load_data)):
         "antigens": data.antigens,
         "mantigens": data.mantigens,
         "mbands": data.mbands,
+        "provenance": data.provenance,
         "tracking_id": tracking_id,
     }
     return templates.TemplateResponse("index.html", context)
@@ -38,14 +52,14 @@ async def crf_explainer(request: Request):
     return templates.TemplateResponse("crf-explainer.html", {"request": request})
 
 
-@router.get("/calc/")
+@router.get("/calc/", response_model=CalculationResponse)
 @limiter.limit("60/minute", error_message="Too many requests, slow down!")
 async def calc(
     request: Request,
     bg: str = Query(..., max_length=2, pattern=r"^[ABO]$|^AB$", description="Blood group"),
     specs: Optional[str] = Query(None, pattern=r"^$|^([ABCD][QRPW]?[AB]?\d{1,4},?)+$", description="Recipient specs"),
     data=Depends(load_data, use_cache=True),
-    donor_set: Optional[int] = Query(0, ge=0, le=1, description="Donor set [ALL=0, DPB=1]"),
+    donor_set: int = Query(0, ge=0, le=1, description="Donor set [ALL=0, DPB=1]"),
     recip_hla: Optional[str] = Query(None, pattern=r"^$|^([ABCD][QRPW]?\d{1,3},?)+$", description="Recipient HLA-B/DR"),
 ):
     """calculate matchability"""
@@ -78,11 +92,16 @@ async def calc(
         matchability_bands=data.mbands,
     )
     results = calculator.calculate()
+    calculation_context = CALCULATION_CONTEXTS[donor_set]
     return {
         "bg": bg,
         "specs": specs,
         "results": results,
         "total": total,
+        "donor_set": donor_set,
+        **calculation_context,
+        "calculated_at": datetime.now(UTC),
+        "provenance": data.provenance,
         "recip_hla": recip_hla,
         "recip_hla_used": recip_hla_list or None,
         "recip_hla_conversions": recip_hla_conversions,

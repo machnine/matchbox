@@ -289,8 +289,8 @@ const renderCalculation = (data) => {
   document.getElementById("crf-text").classList.remove("text-danger");
   document.getElementById("crf-text").textContent = (data.results.crf * 100).toFixed(2) + "%";
   document.getElementById("avd-text").textContent = data.results.available;
-  document.getElementById("mp-text").textContent = data.results.matchability ?? "—";
-  document.getElementById("fm-text").textContent = data.results.favourable ?? "—";
+  document.getElementById("mp-text").textContent = data.donor_set === 1 ? "—" : data.results.matchability ?? "—";
+  document.getElementById("fm-text").textContent = data.donor_set === 1 ? "—" : data.results.favourable ?? "—";
 
   const dpToggle = document.getElementById("id_dp-toggle");
   let dpTooltip = bootstrap.Tooltip.getInstance(dpToggle);
@@ -311,7 +311,7 @@ const renderCalculation = (data) => {
   }
 
   clearMatchCounts();
-  if (data.results.match_counts) {
+  if (data.donor_set === 0 && data.results.match_counts) {
     const mc = data.results.match_counts;
     const convRatio = data.total / 10000; // convert DP only donor calcs to 10k donor scale
     const counts = {
@@ -524,31 +524,16 @@ document.getElementById('antigen-input').addEventListener('keypress', (event) =>
 // Log current API data to console
 addProfileButton.addEventListener('click', () => {
   if (currentApiData) {
-    let removed = [];
-    let added = [];
-    
-    // Only calculate differences if this is not the first entry
-    if (storedData.length > 0) {
-      const previousSpecs = storedData[storedData.length - 1].specs;
-      const currentSpecs = currentApiData.specs;
-      
-      // Calculate removed and added specs
-      removed = previousSpecs.filter(spec => !currentSpecs.includes(spec));
-      added = currentSpecs.filter(spec => !previousSpecs.includes(spec));
+    const previousProfile = storedData.length > 0 ? storedData[storedData.length - 1] : null;
+    let flattenedData;
+    try {
+      flattenedData = MatchboxProfileExport.buildProfileRecord(currentApiData, previousProfile);
+    } catch (error) {
+      console.error("Unable to store calculator profile:", error);
+      setCalculationFailed();
+      return;
     }
-    
-    // Create flattened data with only specified fields in the requested order
-    const flattenedData = {
-      crf: currentApiData.results.crf * 100,
-      matchability: currentApiData.results.matchability,
-      favourable: currentApiData.results.favourable,
-      available: currentApiData.results.available,
-      recip_hla: currentApiData.recip_hla,
-      specs: currentApiData.specs,
-      removed: removed,
-      added: added
-    };
-    
+
     // Add current data to memory
     storedData.push(flattenedData);
     
@@ -587,24 +572,7 @@ document.getElementById('btn-export-csv').addEventListener('click', () => {
     return;
   }
   
-  // Convert array fields to comma-separated strings for TSV and handle null values
-  const tsvData = storedData.map(row => ({
-    'CRF (%)': row.crf ?? ' ',
-    'Matchability': row.matchability ?? ' ',
-    'Favourable': row.favourable ?? ' ',
-    'Available': row.available ?? ' ',
-    'Recipient HLA': row.recip_hla || ' ',
-    'Unacceptable Specs': row.specs.length > 0 ? row.specs.join(',') : ' ',
-    'Removed': row.removed.length > 0 ? row.removed.join(',') : ' ',
-    'Added': row.added.length > 0 ? row.added.join(',') : ' '
-  }));
-  
-  // Create TSV header and content with new descriptive headers
-  const headers = ['CRF (%)', 'Matchability', 'Favourable', 'Available', 'Recipient HLA', 'Unacceptable Specs', 'Removed', 'Added'];
-  const tsvContent = [
-    headers.join('\t'), // Header row with tabs
-    ...tsvData.map(row => headers.map(header => row[header]).join('\t')) // Data rows with tabs
-  ].join('\n');
+  const tsvContent = MatchboxProfileExport.profilesToTsv(storedData);
   
   // Copy to clipboard
   navigator.clipboard.writeText(tsvContent)

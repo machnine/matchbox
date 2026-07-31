@@ -1,7 +1,12 @@
 # cRF and matchability calculator
 
 ## Data sources
-*10,000 donors* used int the [NHSBT-ODT cRF calculator](https://www.odt.nhs.uk/transplantation/tools-policies-and-guidance/calculators/)
+*10,000 donors* used in the [NHSBT-ODT cRF calculator](https://www.odt.nhs.uk/transplantation/tools-policies-and-guidance/calculators/).
+
+Matchbox records the upstream Excel filename and file-size signature supplied with this release. API results also include
+the verified data-release identifier, derived donor database filename, SHA-256 fingerprint, donor table, and
+matchability-band version. The fingerprint identifies the exact derived data artifact even though upstream source
+versioning is opaque. Custom artifacts do not inherit the bundled release identifier automatically.
 
 ## Caclulations
 ### Sensitisation: 
@@ -60,8 +65,16 @@ GET /calc/?bg=O&specs=A2,A11,B64,CW15,DR15,DQ6,DPB2&recip_hla=B7,B18,DR9,DR2&don
 
 - **bg**: blood group e.g. "A"
 - **specs**: antibody specs e.g. "A1,B2,DR1"
-- **donor_set**: all donors [0, default] or only donors with HLA-DPB1 types [1]
-- **recip_hla**: recipient HLA-B and DR type (broad) e.g. "B7,B8,DR9"
+- **donor_set**: the all-donor reference calculation [0, default], aligned with the current ODT workbook; or the DP-typed-only subset
+  [1], a non-official subset analysis
+- **recip_hla**: recipient HLA-B and DR type, e.g. "B7,B8,DR9". Recognised split inputs are converted to the broad
+  specificities used by the calculation; the response reports both `recip_hla_used` and `recip_hla_conversions`.
+
+The response includes `donor_set`, `donor_cohort`, `calculation_mode`, `calculated_at`, and `provenance` alongside the
+existing raw result fields. Raw DP-subset matchability values remain in the API for compatibility. Saved browser profiles
+and TSV exports intentionally store Matchability and Favourable as null/blank for the DP-typed subset, because the
+published matchability bands apply to the full donor cohort. The appended TSV audit columns include an export schema
+version; the original eight columns retain their existing order.
 
 ## Google Analytics
 To use Google Analytics, add the environment variable at docker run
