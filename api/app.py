@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from .assets import STATIC_DIR
 from .logger import log_manager
 from .offer import router as offer_router
 from .ratelimiter import limiter
@@ -16,7 +17,7 @@ from .route import router
 def create_app():
     """API app loader"""
     this_app = FastAPI(title="matchbox", version="1.0", description="cRF/Matchability calculator API")
-    this_app.mount("/static", StaticFiles(directory="static"), name="static")
+    this_app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     # start up / shut down events
     this_app.add_event_handler("startup", api_startup)

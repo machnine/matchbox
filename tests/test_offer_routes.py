@@ -7,6 +7,7 @@ these endpoints return are the product.
 from fastapi.testclient import TestClient
 
 from api.app import create_app
+from api.assets import asset_version
 
 app = create_app()
 client = TestClient(app)
@@ -354,6 +355,19 @@ def test_offer_page_has_provenance_strip():
     html = client.get("/offer/").text
     for element in ("prov-set", "prov-dp", "prov-cohort", "prov-abo", "prov-threshold"):
         assert element in html
+
+
+def test_offer_page_fingerprints_local_static_assets():
+    html = client.get("/offer/").text
+    for asset in (
+        "bootstrap-5.2.3.min.css",
+        "style.css",
+        "offer.css",
+        "favicon.ico",
+        "bootstrap-5.2.3.bundle.min.js",
+        "offer.js",
+    ):
+        assert f"/static/{asset}?v={asset_version(asset)}" in html
 
 
 def test_threshold_changes_which_specs_count():

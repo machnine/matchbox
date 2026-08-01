@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
+from .assets import asset_version
 from .burden import (
     DEFAULT_DSA_THRESHOLD,
     AntibodyProfile,
@@ -49,6 +50,7 @@ from .ratelimiter import limiter
 
 router = APIRouter(prefix="/offer", tags=["offer assessment"])
 templates = Jinja2Templates(directory="web")
+templates.env.globals["asset_version"] = asset_version
 
 # Bumped when a change alters any number a stored result could contain.
 POLICY_VERSION = "2026-07-29.1"

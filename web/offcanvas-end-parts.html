@@ -30,10 +30,11 @@
         </div>
         <div class="mb-2">
           <b>v. Donor cohort selection</b>
-          Only 3,642 donors in the 10,000 cohort are DP typed.
-          Click <i class="bi bi-toggle2-on text-success"><small>A</small></i> to toggle between all donors and DP-typed
-          only
-          <i class="bi bi-toggle2-off text-success"><small>D</small></i>.
+          <i class="bi bi-toggle2-on text-success"><small>A</small></i> uses the all-10,000-donor reference calculation,
+          aligned with the current ODT workbook and intentionally retaining known upstream behaviour. Only 3,642 donors are DP typed;
+          <i class="bi bi-toggle2-off text-success"><small>D</small></i> is a non-official subset analysis using those
+          records. Because the published matchability bands apply to the full cohort, matchability and favourable donor
+          values are not applicable to the DP-typed subset and are saved/exported as blank values.
         </div>
         <div class="mb-2">
           <b>vi. Shareable URLs</b>
@@ -60,7 +61,8 @@
         <div class="mb-2">
           <b>x. Profile collection</b>
           Click <i class="bi bi-plus-circle text-warning"></i> <b>Add</b>
-          to save current results (cRF, matchability, specs) to memory. Red badge shows saved count. Click
+          to save current results and their calculation mode, canonical recipient HLA, and data provenance to memory.
+          Red badge shows saved count. Click
           <b><i class="bi bi-clipboard text-primary"></i> Copy</b> to export as <i>tab separated values (.tsv)</i>
           format for Excel/analysis tools.
         </div>
@@ -70,17 +72,33 @@
       <div class="card-body d-flex flex-column">
         <div class="mb-1">
           <span class="text-muted">Data source:</span>
-          <i class="text-danger">hla-mm-and-crf_2024.xlsb</i>
+          {% if provenance.upstream_source_file %}
+          <i class="text-danger">{{ provenance.upstream_source_file }}</i>
+          {% else %}
+          <i class="text-danger">Not declared for this data artifact</i>
+          {% endif %}
+          {% if provenance.data_release %}
           <a href="https://www.odt.nhs.uk/transplantation/tools-policies-and-guidance/calculators/" target="_blank">
             <i class="bi bi-box-arrow-up-right"></i>
           </a>
+          {% endif %}
         </div>
         <div class="mb-1"
-          title="🤷File size signature used to identifiy the 'version' of the ODT Excel file as currently there is no version controls."
+          title="File size signature used to identify the ODT Excel file because the upstream source has no explicit version identifier."
           data-bs-placement="top">
           <span class="text-muted">File size signature:</span>
-          <i class="text-success">24,099,579</i>.
+          {% if provenance.upstream_source_file_size_signature %}
+          <i class="text-success">{{ "{:,}".format(provenance.upstream_source_file_size_signature) }}</i>.
+          {% else %}
+          <i class="text-success">Not declared</i>.
+          {% endif %}
         </div>
+        {% if provenance.data_release %}
+        <div class="mb-1">
+          <span class="text-muted">Data release:</span>
+          <i class="text-success">{{ provenance.data_release }}</i>.
+        </div>
+        {% endif %}
         <div class="mb-1">
           <span class="text-muted">Created by:</span>
           Mian Chen - <i>March 2024.</i> (v26.04.21.1)

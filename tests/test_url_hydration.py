@@ -25,6 +25,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api import api
+from api.assets import asset_version
+from api.data import DataProvenance
 from api.route import load_data
 
 mock_donors = pd.read_csv("tests/mock_donors.csv")
@@ -43,6 +45,14 @@ mock_data.mbands = {
 }
 mock_data.antigen_defaults = {"B42": "B7", "DR9": "DR4"}
 mock_data.broad_split = {"broad_to_splits": {}, "split_to_broad": {}}
+mock_data.provenance = DataProvenance(
+    upstream_source_file="mock-source.xlsb",
+    upstream_source_file_size_signature=123_456,
+    donor_database="mock-donors.db",
+    donor_database_sha256="b" * 64,
+    donor_table="mock_donors",
+    matchability_band_version=8,
+)
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -66,6 +76,25 @@ def test_html_exposes_selectors_used_by_shared_url_contract():
     assert 'id="id_dp-toggle"' in html
     assert ">A</small>" in html
     assert 'id="id_B7"' in html  # representative antigen checkbox from mock
+    assert "mock-source.xlsb" in html
+    assert "123,456" in html
+
+
+def test_html_fingerprints_local_static_assets():
+    """A changed asset must get a new URL so browsers cannot reuse stale code."""
+    html = client.get("/").text
+    assets = (
+        "bootstrap-5.2.3.min.css",
+        "style.css",
+        "favicon.ico",
+        "results-display.png",
+        "bootstrap-5.2.3.bundle.min.js",
+        "profile-export.js",
+        "scripts.js",
+    )
+
+    for asset in assets:
+        assert f"/static/{asset}?v={asset_version(asset)}" in html
 
 
 def test_scripts_js_declares_shared_url_contract():
@@ -130,3 +159,8 @@ def test_calc_donor_set_changes_results_when_dp_pool_differs():
 
     assert body_all["total"] != body_dp["total"]
     assert body_all["results"] != body_dp["results"]
+    assert body_all["donor_cohort"] == "all_donors"
+    assert body_dp["donor_cohort"] == "dp_typed_only"
+    assert body_all["calculation_mode"] == "all_donors_reference"
+    assert body_dp["calculation_mode"] == "dp_typed_subset"
+    assert body_all["provenance"] == body_dp["provenance"]
