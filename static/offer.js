@@ -402,6 +402,7 @@ function renderPrimary(result, summary) {
   $('summary-equal').textContent = fmt(placement.n_equal);
   $('summary-higher').textContent = fmt(placement.n_higher);
   renderRankStack($('summary-bar'), placement);
+  renderRankLabels(placement);
 
   if (placement.empirical_percentile_range) {
     const [low, high] = placement.empirical_percentile_range;
@@ -435,6 +436,15 @@ function renderRankStack(container, placement) {
     container.appendChild(segment);
   });
   container.setAttribute('aria-label', `${fmt(placement.n_lower)} lower burden, ${fmt(placement.n_equal)} same burden, ${fmt(placement.n_higher)} higher burden`);
+}
+
+function renderRankLabels(placement) {
+  const counts = [placement.n_lower, placement.n_equal, placement.n_higher];
+  const container = $('summary-counts');
+  container.style.gridTemplateColumns = counts.map((count) => `minmax(0, ${count}fr)`).join(' ');
+  [...container.children].forEach((label, index) => {
+    label.classList.toggle('is-empty', counts[index] === 0);
+  });
 }
 
 function renderJoint(joint) {

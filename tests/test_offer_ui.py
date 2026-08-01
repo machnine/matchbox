@@ -50,6 +50,12 @@ def test_visualisation_has_distinct_lower_tie_and_higher_segments():
     assert "['higher', placement.n_higher]" in SCRIPT
 
 
+def test_primary_count_labels_follow_the_bar_segment_proportions():
+    assert 'id="summary-counts"' in HTML
+    assert ".rank-counts" in STYLE
+    assert "container.style.gridTemplateColumns = counts.map" in SCRIPT
+
+
 def test_server_messages_are_inserted_as_text_not_markup():
     assert "error.textContent = message" in SCRIPT
     assert "struck.textContent = row.raw_spec" in SCRIPT

@@ -124,6 +124,20 @@
   height: 8px;
 }
 
+.rank-counts {
+  display: grid;
+  text-align: center;
+}
+
+.rank-count-group {
+  min-width: 0;
+  padding-inline: 0.2rem;
+}
+
+.rank-count-group.is-empty {
+  visibility: hidden;
+}
+
 .rank-segment {
   display: block;
   min-width: 0;
