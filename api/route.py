@@ -21,6 +21,11 @@ router = APIRouter()
 templates = Jinja2Templates(directory="web")
 templates.env.globals["asset_version"] = asset_version
 
+# Batch clients legitimately evaluate many profiles in succession. Keep a
+# per-client ceiling, but allow local/deployment operators to tune it without a
+# code change when running controlled calculations.
+CALCULATION_RATE_LIMIT = os.getenv("MATCHBOX_CALC_RATE_LIMIT", "300/minute")
+
 CALCULATION_CONTEXTS = {
     0: {
         "donor_cohort": "all_donors",
@@ -55,7 +60,7 @@ async def crf_explainer(request: Request):
 
 
 @router.get("/calc/", response_model=CalculationResponse)
-@limiter.limit("60/minute", error_message="Too many requests, slow down!")
+@limiter.limit(CALCULATION_RATE_LIMIT, error_message="Too many calculation requests, slow down!")
 async def calc(
     request: Request,
     bg: str = Query(..., max_length=2, pattern=r"^[ABO]$|^AB$", description="Blood group"),

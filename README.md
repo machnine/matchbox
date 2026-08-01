@@ -63,6 +63,10 @@ This app has one GET endpoint */calc/* which accepts the following queries:
 GET /calc/?bg=O&specs=A2,A11,B64,CW15,DR15,DQ6,DPB2&recip_hla=B7,B18,DR9,DR2&donor_set=0 HTTP/1.1
 ```
 
+The calculation endpoint allows 300 requests per minute per client by default.
+Set `MATCHBOX_CALC_RATE_LIMIT` to another SlowAPI limit string (for example,
+`600/minute`) when running a controlled batch deployment.
+
 - **bg**: blood group e.g. "A"
 - **specs**: antibody specs e.g. "A1,B2,DR1"
 - **donor_set**: the all-donor reference calculation [0, default], aligned with the current ODT workbook; or the DP-typed-only subset
