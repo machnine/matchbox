@@ -30,6 +30,7 @@ const state = {
   valid: false,
   parseGeneration: 0,
   assessmentGeneration: 0,
+  parseTimer: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -607,12 +608,9 @@ function renderMetricAgreement(result) {
 // wiring
 // ---------------------------------------------------------------------------
 
-$('btn-parse').addEventListener('click', () => {
-  state.roles = null; // re-detect on an explicit preview
-  parsePaste(false);
-});
-
 $('btn-clear').addEventListener('click', () => {
+  clearTimeout(state.parseTimer);
+  state.parseTimer = null;
   state.parseGeneration += 1;
   $('paste-box').value = '';
   $('preview').classList.add('d-none');
@@ -650,18 +648,26 @@ $('bg').addEventListener('change', () => {
   });
 });
 
-// paste straight into a preview -- the common path
-$('paste-box').addEventListener('paste', () => {
-  setTimeout(() => {
-    state.roles = null;
-    parsePaste(false);
-  }, 10);
-});
 $('paste-box').addEventListener('input', () => {
+  clearTimeout(state.parseTimer);
   state.parseGeneration += 1;
   state.valid = false;
   invalidateResults();
   updateAssessButton();
+  if (!$('paste-box').value.trim()) {
+    $('preview').classList.add('d-none');
+    $('role-row').classList.add('d-none');
+    $('problems').innerHTML = '';
+    $('spec-count').textContent = '0 specificities';
+    state.rows = [];
+    state.roles = null;
+    return;
+  }
+  state.parseTimer = setTimeout(() => {
+    state.parseTimer = null;
+    state.roles = null;
+    parsePaste(false);
+  }, 350);
 });
 
 function invalidateResults() {

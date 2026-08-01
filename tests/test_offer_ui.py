@@ -37,6 +37,12 @@ def test_offer_inputs_include_donor_blood_group_and_staleness_guards():
     assert "donor_bg: $('donor-bg').value" in SCRIPT
 
 
+def test_profile_edits_auto_preview_without_a_redundant_button():
+    assert 'id="btn-parse"' not in HTML
+    assert "state.parseTimer = setTimeout" in SCRIPT
+    assert "parsePaste(false);" in SCRIPT
+
+
 def test_zero_threshold_is_not_replaced_by_the_default():
     assert "Number.isFinite(threshold) ? threshold : 2000" in SCRIPT
     assert "parseFloat($('threshold').value) || 2000" not in SCRIPT
