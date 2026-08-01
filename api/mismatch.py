@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Set
 from pandas import DataFrame, Series
 from pydantic import BaseModel
 
-from .burden import Metric, MFIBasis, score
+from .burden import Metric, MFIBasis, resolve_profile_mfi, score
 from .calculator import (
     FAVOURABLE_LEVELS,
     GRADE_LEVELS,
@@ -141,7 +141,7 @@ def build_joint_view(
     donors better on *both* axes is reported -- the number that answers "is this
     offer unusually good", which neither axis answers alone.
     """
-    mfi = profile.series_for(basis)
+    mfi, _, _, _ = resolve_profile_mfi(cohort, profile, basis)
     usable = [s for s in mfi.index if s in reference.columns]
     mfi = mfi[usable]
 

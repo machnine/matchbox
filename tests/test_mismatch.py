@@ -65,6 +65,12 @@ def test_favourable_levels_are_one_and_two():
     assert FAVOURABLE_LEVELS == (1, 2)
 
 
+@pytest.mark.parametrize("b_mm,dr_mm", [(3, 0), (0, 3), (-1, 0)])
+def test_invalid_mismatch_counts_fail_instead_of_becoming_level_four(b_mm, dr_mm):
+    with pytest.raises(ValueError, match="invalid B/DR mismatch counts"):
+        mismatch_level(b_mm, dr_mm)
+
+
 # --------------------------------------------------------------------------
 # mismatch counting
 # --------------------------------------------------------------------------

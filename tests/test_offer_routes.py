@@ -131,6 +131,7 @@ def test_distribution_carries_provenance():
     assert meta["threshold"] == 2000
     assert meta["policy_version"]
     assert meta["vocabulary_version"]
+    assert len(meta["data_provenance"]["donor_database_sha256"]) == 64
 
 
 def test_distribution_records_defaulted_choices():
@@ -161,6 +162,31 @@ def test_distribution_rejects_unknown_specificity():
 def test_distribution_rejects_unknown_blood_group():
     bad = {**PROFILE, "bg": "Z"}
     assert client.post("/offer/distribution", json=bad).status_code == 422
+
+
+def test_distribution_rejects_negative_or_duplicate_profile_values():
+    negative = {"bg": "A", "specs": [{"spec": "A1", "current": -1}]}
+    duplicate = {
+        "bg": "A",
+        "specs": [{"spec": "A1", "current": 3000}, {"spec": "a1", "current": 4000}],
+    }
+    bad_threshold = {"bg": "A", "threshold": -1, "specs": [{"spec": "A1", "current": 3000}]}
+
+    assert client.post("/offer/distribution", json=negative).status_code == 422
+    assert client.post("/offer/distribution", json=duplicate).status_code == 422
+    assert client.post("/offer/distribution", json=bad_threshold).status_code == 422
+
+
+def test_distribution_reports_basis_specific_reference_sizes():
+    profile = {
+        "bg": "A",
+        "specs": [
+            {"spec": "A1", "current": 5000, "peak": 5000},
+            {"spec": "B7", "current": 1000, "peak": 9000},
+        ],
+    }
+    body = client.post("/offer/distribution", json=profile).json()
+    assert body["distributions"]["current"]["reference_size"] != body["distributions"]["peak"]["reference_size"]
 
 
 def test_distribution_current_only_when_peak_absent():
@@ -199,6 +225,8 @@ def test_dp_exclude_states_what_was_discarded():
     provenance = body["meta"]["provenance"]
     assert provenance["dp_specs_dropped"] == ["DPB4"]
     assert provenance["cohort_size"] == 4094
+    assert body["distributions"]["current"]["specs_used"] == ["A1"]
+    assert body["distributions"]["current"]["specs_excluded_by_cohort"] == ["DPB4"]
     assert any("discarded" in n for n in body["meta"]["notes"])
 
 
@@ -250,10 +278,12 @@ def test_placement_counts_identical_dsa_sets():
     assert body["identical_dsa_set_count"] > 0
 
 
-def test_placement_donor_with_no_dsa_scores_zero():
+def test_placement_donor_with_no_dsa_is_not_ranked():
     body = client.post("/offer/placement", json={**PROFILE, "donor_hla": ["A2", "B8", "DR15"]}).json()
     assert body["dsa_count"] == 0
-    assert body["placements"]["current:cumulative"]["value"] == 0
+    assert body["offer_status"] == "compatible_no_dsa"
+    assert body["basis_summaries"]["current"]["status"] == "compatible_no_dsa"
+    assert "current:cumulative" not in body["placements"]
 
 
 def test_placement_metrics_can_disagree():
@@ -272,7 +302,7 @@ def test_placement_metrics_can_disagree():
             {"spec": "DR4", "current": 2500},
         ],
     }
-    body = client.post("/offer/placement", json={**profile, "donor_hla": ["A1", "DR4"]}).json()
+    body = client.post("/offer/placement", json={**profile, "donor_hla": ["A1", "B8", "DR4"]}).json()
     cumulative = body["placements"]["current:cumulative"]
     maximum = body["placements"]["current:max"]
     assert cumulative["n_lower"] > 1000
@@ -284,18 +314,42 @@ def test_placement_rejects_unknown_donor_antigen():
     assert response.status_code == 422
 
 
-def test_placement_flags_abo_mismatch_between_offer_and_reference_set():
+def test_placement_rejects_abo_mismatch_between_offer_and_reference_set():
+    response = client.post(
+        "/offer/placement",
+        json={**PROFILE, "donor_hla": ["A1", "B7", "DR15"], "donor_bg": "O"},
+    )
+    assert response.status_code == 422
+    assert "outside the selected" in response.json()["detail"]
+
+
+def test_placement_rejects_missing_typing_at_an_antibody_locus():
+    response = client.post("/offer/placement", json={**PROFILE, "donor_hla": ["A1", "B7"]})
+    assert response.status_code == 422
+    assert "missing typing" in response.json()["detail"]
+
+
+def test_placement_keeps_current_and_peak_denominators_separate():
+    profile = {
+        "bg": "A",
+        "specs": [
+            {"spec": "A1", "current": 5000, "peak": 5000},
+            {"spec": "B7", "current": 1000, "peak": 9000},
+        ],
+    }
     body = client.post(
         "/offer/placement",
-        json={**PROFILE, "donor_hla": ["A1", "B7"], "donor_bg": "O"},
+        json={**profile, "donor_hla": ["A1", "B7"]},
     ).json()
-    assert any("ABO relationship" in n for n in body["meta"]["notes"])
+    assert body["reference_size"] == body["basis_summaries"]["current"]["reference_size"]
+    assert body["basis_summaries"]["current"]["reference_size"] != body["basis_summaries"]["peak"]["reference_size"]
+    assert any("different incompatible reference populations" in note for note in body["meta"]["notes"])
 
 
 def test_placement_agrees_with_distribution_reference_size():
     """the two calls must describe the same population"""
     dist = client.post("/offer/distribution", json=PROFILE).json()
-    place = client.post("/offer/placement", json={**PROFILE, "donor_hla": ["A1", "B7"]}).json()
+    place = client.post("/offer/placement", json={**PROFILE, "donor_hla": ["A1", "B7", "DR15"]}).json()
     assert place["reference_size"] == dist["distributions"]["current"]["reference_size"]
 
 
@@ -305,7 +359,7 @@ def test_placement_agrees_with_distribution_reference_size():
 
 
 def test_placement_omits_joint_view_without_recipient_hla():
-    body = client.post("/offer/placement", json={**PROFILE, "donor_hla": ["A1", "B7"]}).json()
+    body = client.post("/offer/placement", json={**PROFILE, "donor_hla": ["A1", "B7", "DR15"]}).json()
     assert body["joint"] is None
 
 
@@ -321,6 +375,16 @@ def test_placement_includes_joint_view_with_recipient_hla():
     assert joint["n_better_on_both"] is not None
 
 
+def test_placement_canonicalises_recipient_splits_for_mismatch():
+    body = client.post(
+        "/offer/placement",
+        json={**PROFILE, "donor_hla": ["A1", "B44", "DR17"], "recip_hla": "B44 DR17"},
+    ).json()
+    assert body["recip_hla_used"] == ["B12", "DR3"]
+    assert body["recip_hla_conversions"] == {"B44": "B12", "DR17": "DR3"}
+    assert body["joint"] is not None
+
+
 def test_joint_view_cells_sum_to_reference_size():
     body = client.post(
         "/offer/placement",
@@ -334,7 +398,7 @@ def test_joint_view_is_not_a_fifth_distribution():
     """mismatch must not appear alongside the burden metrics as a parallel ranking"""
     body = client.post(
         "/offer/placement",
-        json={**PROFILE, "donor_hla": ["A1", "B7"], "recip_hla": "B8 DR15"},
+        json={**PROFILE, "donor_hla": ["A1", "B7", "DR15"], "recip_hla": "B8 DR15"},
     ).json()
     assert not any("mismatch" in key for key in body["placements"])
 
@@ -353,7 +417,7 @@ def test_offer_page_renders():
 def test_offer_page_has_provenance_strip():
     """§7.2 -- provenance is visible before any number is read"""
     html = client.get("/offer/").text
-    for element in ("prov-set", "prov-dp", "prov-cohort", "prov-abo", "prov-threshold"):
+    for element in ("prov-set", "prov-dp", "prov-cohort", "prov-abo", "prov-threshold", "prov-data"):
         assert element in html
 
 

@@ -16,12 +16,13 @@ result should be interpretable years later, and two runs made under different
 toggles must not look comparable when they are not.
 """
 
-from typing import Dict, List, Optional
+import re
+from typing import Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .assets import asset_version
 from .burden import (
@@ -29,10 +30,12 @@ from .burden import (
     AntibodyProfile,
     Metric,
     MFIBasis,
+    OfferStatus,
     SpecMFI,
     assess_offer,
     build_distribution,
     reference_population,
+    resolve_profile_mfi,
 )
 from .cohort import (
     ABOPolicyUnavailable,
@@ -43,72 +46,183 @@ from .cohort import (
     Tier,
     select,
 )
-from .data import load_data
+from .data import DataProvenance, load_data
+from .input_validation import AntigenValidationError, validate_recipient_hla
 from .mismatch import build_joint_view, parse_recipient_bdr
 from .parser import ColumnRole, parse, parse_donor_type
 from .ratelimiter import limiter
+from .recipient import canonicalise_recipient_hla
 
 router = APIRouter(prefix="/offer", tags=["offer assessment"])
 templates = Jinja2Templates(directory="web")
 templates.env.globals["asset_version"] = asset_version
 
 # Bumped when a change alters any number a stored result could contain.
-POLICY_VERSION = "2026-07-29.1"
+POLICY_VERSION = "2026-08-01.1"
 VOCABULARY_VERSION = "donors_v3.broad-split"
 
 
 class SpecInput(BaseModel):
     """one specificity as submitted"""
 
-    spec: str
-    current: float
-    peak: Optional[float] = None
+    spec: str = Field(min_length=1)
+    current: float = Field(ge=0, allow_inf_nan=False)
+    peak: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+
+    @field_validator("spec", mode="before")
+    @classmethod
+    def normalise_spec(cls, value):
+        return str(value).strip().upper()
+
+    @model_validator(mode="after")
+    def peak_cannot_be_below_current(self):
+        if self.peak is not None and self.peak < self.current:
+            raise ValueError("peak MFI cannot be below current MFI")
+        return self
 
 
 class ProfileRequest(BaseModel):
     """a patient profile and the selection toggles"""
 
     bg: str = Field(..., pattern=r"^(A|B|AB|O)$")
-    specs: List[SpecInput]
-    donor_set: str = "donors_v3"
+    specs: List[SpecInput] = Field(min_length=1, max_length=500)
+    donor_set: Literal["donors_v3"] = "donors_v3"
     dp_mode: DPMode = DPMode.AUTO
     abo_rule: ABORule = ABORule.IDENTICAL
-    organ: Optional[str] = None
+    organ: Optional[str] = Field(default=None, max_length=32)
     tier: Optional[Tier] = None
-    threshold: float = DEFAULT_DSA_THRESHOLD
+    threshold: float = Field(default=DEFAULT_DSA_THRESHOLD, ge=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def reject_duplicate_specificities(self):
+        names = [spec.spec for spec in self.specs]
+        duplicates = sorted({name for name in names if names.count(name) > 1})
+        if duplicates:
+            raise ValueError(f"duplicate specificities: {', '.join(duplicates)}")
+        return self
 
 
 class PlacementRequest(ProfileRequest):
     """a profile plus the offered donor's HLA type"""
 
-    donor_hla: List[str]
-    donor_bg: Optional[str] = None
-    recip_hla: Optional[str] = None  # B/DR broads, for the mismatch axis
+    donor_hla: List[str] = Field(min_length=1, max_length=100)
+    donor_bg: Optional[str] = Field(default=None, pattern=r"^(A|B|AB|O)$")
+    recip_hla: Optional[str] = Field(default=None, min_length=1, max_length=256)  # B/DR broads, mismatch axis
+
+    @field_validator("donor_hla", mode="before")
+    @classmethod
+    def normalise_donor_hla(cls, value):
+        if not isinstance(value, list):
+            return value
+        normalised = [str(antigen).strip().upper() for antigen in value]
+        if any(not antigen for antigen in normalised):
+            raise ValueError("donor HLA contains an empty value")
+        if len(normalised) != len(set(normalised)):
+            raise ValueError("donor HLA contains duplicate values")
+        return normalised
 
 
 class ParseRequest(BaseModel):
     """a pasted block awaiting preview"""
 
-    text: str
-    roles: Optional[List[ColumnRole]] = None
+    text: str = Field(min_length=1, max_length=250_000)
+    roles: Optional[List[ColumnRole]] = Field(default=None, max_length=100)
 
 
 class DonorTypeRequest(BaseModel):
-    text: str
+    text: str = Field(min_length=1, max_length=4096)
 
 
 class ResponseMeta(BaseModel):
     """what every response carries so it stays interpretable (§5.3)"""
 
     provenance: Provenance
+    data_provenance: DataProvenance
     threshold: float
     policy_version: str = POLICY_VERSION
     vocabulary_version: str = VOCABULARY_VERSION
-    notes: List[str] = []
+    notes: List[str] = Field(default_factory=list)
 
 
 def _vocabulary(data) -> List[str]:
     return [ag for ags in data.antigens.values() for ag in ags]
+
+
+def _locus(antigen: str) -> Optional[str]:
+    match = re.match(r"^([A-Z]+)\d", antigen)
+    return match.group(1) if match else None
+
+
+def _active_specs_by_basis(cohort, profile) -> Dict[str, List[str]]:
+    """Specificities that actually enter each basis after threshold and DP policy."""
+    active: Dict[str, List[str]] = {}
+    for basis in profile.available_bases:
+        _, present, _, _ = resolve_profile_mfi(cohort, profile, basis)
+        active[basis.value] = present
+    return active
+
+
+def _validate_donor_typing(cohort, profile, donor_hla: List[str]) -> None:
+    """Fail closed when an antibody locus is absent from the offered donor type.
+
+    An omitted locus is unknown, not negative. Treating it as a row of zeroes can
+    turn an incompletely typed offer into an apparently low-burden offer.
+    """
+    required_loci = {
+        locus
+        for specs in _active_specs_by_basis(cohort, profile).values()
+        for spec in specs
+        if (locus := _locus(spec))
+    }
+    donor_loci = {locus for antigen in donor_hla if (locus := _locus(antigen))}
+    missing = sorted(required_loci - donor_loci)
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "offered donor HLA is missing typing at antibody locus/loci: "
+                f"{', '.join(missing)}; omitted typing cannot be treated as negative"
+            ),
+        )
+
+
+def _canonical_bdr(
+    antigens: List[str],
+    data,
+    field: str,
+    require_only_bdr: bool = False,
+) -> tuple[List[str], Dict[str, str], Dict[str, set]]:
+    """Canonicalise B/DR splits and require a usable two-locus mismatch type."""
+    bdr_input = [
+        antigen
+        for antigen in antigens
+        if antigen.startswith("DR") or (antigen.startswith("B") and not antigen.startswith("BW"))
+    ]
+    if require_only_bdr and len(bdr_input) != len(antigens):
+        invalid = [antigen for antigen in antigens if antigen not in bdr_input]
+        raise HTTPException(status_code=422, detail=f"{field} accepts HLA-B/DR only: {', '.join(invalid)}")
+
+    canonical, conversions = canonicalise_recipient_hla(
+        bdr_input,
+        data.mantigens,
+        data.broad_split.get("split_to_broad", {}),
+    )
+    try:
+        validate_recipient_hla(canonical, data.mantigens)
+    except AntigenValidationError as exc:
+        raise HTTPException(status_code=422, detail=f"invalid {field}: {', '.join(exc.invalid)}") from exc
+
+    parsed = parse_recipient_bdr(canonical)
+    missing = [locus for locus in ("B", "DR") if not parsed[locus]]
+    excessive = [locus for locus in ("B", "DR") if len(parsed[locus]) > 2]
+    if missing or excessive:
+        details = []
+        if missing:
+            details.append(f"missing {', '.join(missing)}")
+        if excessive:
+            details.append(f"more than two values at {', '.join(excessive)}")
+        raise HTTPException(status_code=422, detail=f"{field} is not a usable B/DR type: {'; '.join(details)}")
+    return canonical, conversions, parsed
 
 
 def _frame_for(data, donor_set: str):
@@ -184,19 +298,21 @@ def _notes(cohort, profile) -> List[str]:
         )
     if provenance.below_stats_floor:
         notes.append(
-            f"Reference population of {provenance.cohort_size} is too small to "
-            "characterise; counts are reported without percentiles."
+            f"Selected donor cohort of {provenance.cohort_size} is too small to characterise "
+            "with percentiles; use the observed counts only."
         )
     if provenance.abo_rule is ABORule.IDENTICAL:
         notes.append(
-            "Blood-group-identical donors only. Under allocation policy this "
-            "recipient may be offered compatible non-identical donors, so the "
-            "counts here understate the pool."
+            "Reference restricted to blood-group-identical donors because the "
+            "offerable allocation-policy mapping is not yet encoded. Counts may "
+            "understate the pool for a compatible non-identical offer."
         )
     if not profile.has_peak and profile.specs:
         notes.append("Peak MFI unavailable for at least one specificity; current basis only.")
 
-    n_specs = len(profile.series_for(MFIBasis.CURRENT))
+    n_specs = len(_active_specs_by_basis(cohort, profile).get(MFIBasis.CURRENT.value, []))
+    if not n_specs:
+        notes.append("No current-MFI specificities remain above threshold after cohort policy was applied.")
     if n_specs == 1:
         notes.append(
             "A single specificity above threshold gives every incompatible donor "
@@ -209,6 +325,15 @@ def _notes(cohort, profile) -> List[str]:
             "many donors tie. Counts are the reliable reading."
         )
     return notes
+
+
+def _response_meta(cohort, profile, data, notes: Optional[List[str]] = None) -> ResponseMeta:
+    return ResponseMeta(
+        provenance=cohort.provenance,
+        data_provenance=data.provenance,
+        threshold=profile.threshold,
+        notes=notes if notes is not None else _notes(cohort, profile),
+    )
 
 
 @router.post("/parse")
@@ -244,7 +369,7 @@ async def parse_donor(request: Request, body: DonorTypeRequest, data=Depends(loa
 
 @router.post("/distribution")
 @limiter.limit("30/minute", error_message="Too many requests, slow down!")
-async def distribution(request: Request, body: ProfileRequest, data=Depends(load_data)):
+def distribution(request: Request, body: ProfileRequest, data=Depends(load_data)):
     """profile to burden distributions over the reference population
 
     Cacheable on the returned provenance plus threshold -- not on the profile
@@ -254,23 +379,26 @@ async def distribution(request: Request, body: ProfileRequest, data=Depends(load
     cohort, profile = _build(body, data)
 
     distributions: Dict[str, dict] = {}
+    notes = _notes(cohort, profile)
     for basis in profile.available_bases:
         dist = build_distribution(cohort, profile, basis)
         distributions[basis.value] = {
             "reference_size": dist.reference_size,
             "specs_used": dist.specs_used,
             "specs_below_threshold": dist.specs_below_threshold,
+            "specs_excluded_by_cohort": dist.specs_excluded_by_cohort,
             "specs_not_in_cohort": dist.specs_not_in_cohort,
             "percentiles_suppressed": dist.percentiles_suppressed,
             "summary": {metric.value: _summarise(dist.values[metric]) for metric in Metric},
         }
+        if dist.percentiles_suppressed:
+            notes.append(
+                f"{basis.value.title()} reference population has {dist.reference_size} incompatible donors; "
+                "percentiles are suppressed and raw counts should be used."
+            )
 
     return {
-        "meta": ResponseMeta(
-            provenance=cohort.provenance,
-            threshold=profile.threshold,
-            notes=_notes(cohort, profile),
-        ),
+        "meta": _response_meta(cohort, profile, data, notes),
         "cohort_size": cohort.provenance.cohort_size,
         "distributions": distributions,
         "bases_available": [b.value for b in profile.available_bases],
@@ -305,7 +433,7 @@ def _summarise(values: List[float]) -> dict:
 
 @router.post("/placement")
 @limiter.limit("30/minute", error_message="Too many requests, slow down!")
-async def placement(request: Request, body: PlacementRequest, data=Depends(load_data)):
+def placement(request: Request, body: PlacementRequest, data=Depends(load_data)):
     """place an offered donor on the reference distributions
 
     The donor is scored by the same function that scores the cohort, so a
@@ -321,6 +449,18 @@ async def placement(request: Request, body: PlacementRequest, data=Depends(load_
             detail=f"donor antigens not in the vocabulary: {', '.join(unknown)}",
         )
 
+    donor_bg = body.donor_bg or body.bg
+    if donor_bg not in cohort.provenance.donor_bgs:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"offered donor blood group {donor_bg} is outside the selected "
+                f"{cohort.provenance.abo_rule.value} reference ({', '.join(cohort.provenance.donor_bgs)}); "
+                "the offer and reference population must use the same ABO rule"
+            ),
+        )
+    _validate_donor_typing(cohort, profile, body.donor_hla)
+
     # represent the offered donor as a row in the cohort's own vocabulary
     donor = frame.iloc[0].copy()
     for column in frame.columns:
@@ -329,26 +469,56 @@ async def placement(request: Request, body: PlacementRequest, data=Depends(load_
     for antigen in body.donor_hla:
         donor[antigen] = 1
     donor["id"] = -1
-    donor["bg"] = body.donor_bg or body.bg
+    donor["bg"] = donor_bg
 
     result = assess_offer(cohort, profile, donor)
     notes = _notes(cohort, profile)
 
-    if body.donor_bg and body.donor_bg != body.bg:
+    summaries = result.basis_summaries
+    for basis, summary in summaries.items():
+        if summary.status is OfferStatus.COMPATIBLE:
+            notes.append(
+                f"No {basis} DSA was detected against the offered donor at this threshold; "
+                "burden ranking is not applicable for that basis."
+            )
+        elif summary.status is OfferStatus.NO_ACTIVE_SPECIFICITIES:
+            notes.append(f"No {basis} specificities remain active, so no burden distribution can be formed.")
+        elif summary.status is OfferStatus.EMPTY_REFERENCE:
+            notes.append(f"The {basis} incompatible reference population is empty; placement is unavailable.")
+
+    reference_sizes = {summary.reference_size for summary in summaries.values()}
+    if len(reference_sizes) > 1:
         notes.append(
-            f"The offered donor is blood group {body.donor_bg} against a "
-            f"{body.bg} recipient, but the reference set is "
-            f"{cohort.provenance.abo_rule.value}. The offer's ABO relationship "
-            "and the reference set's must match for the comparison to hold."
+            "Current and peak MFI activate different specificity sets and therefore use different "
+            "incompatible reference populations. Compare each basis only with its own denominator."
         )
 
     # Mismatch level, where the recipient's B/DR type was supplied. Presented as
     # a joint view rather than a fifth distribution: it is a different kind of
     # quantity from burden and must not be read on the same axis.
     joint = None
-    if body.recip_hla:
-        recipient_bdr = parse_recipient_bdr([ag.strip().upper() for ag in body.recip_hla.replace(",", " ").split()])
-        reference = reference_population(cohort, cohort.specs)
+    recip_hla_used = None
+    recip_hla_conversions: Dict[str, str] = {}
+    if body.recip_hla and result.offer_status is OfferStatus.RANKED:
+        parsed_recipient, problems = parse_donor_type(body.recip_hla, _vocabulary(data))
+        if problems:
+            raise HTTPException(
+                status_code=422,
+                detail="invalid recipient HLA: " + "; ".join(problem.message for problem in problems),
+            )
+        recip_hla_used, recip_hla_conversions, recipient_bdr = _canonical_bdr(
+            parsed_recipient,
+            data,
+            "recipient HLA",
+            require_only_bdr=True,
+        )
+        donor_bdr_used, _, _ = _canonical_bdr(body.donor_hla, data, "offered donor HLA")
+        mismatch_donor = donor.copy()
+        for antigen in donor_bdr_used:
+            mismatch_donor[antigen] = 1
+
+        _, current_specs, _, _ = resolve_profile_mfi(cohort, profile, MFIBasis.CURRENT)
+        reference = reference_population(cohort, current_specs)
         view = build_joint_view(
             cohort,
             profile,
@@ -356,29 +526,28 @@ async def placement(request: Request, body: PlacementRequest, data=Depends(load_
             recipient_bdr,
             data.mantigens,
             data.antigen_defaults,
-            offered_donor=donor,
+            offered_donor=mismatch_donor,
         )
         joint = view.model_dump(mode="json")
         if view.n_better_on_both == 0 and view.reference_size:
             notes.append(
-                "No donor in the reference population is better on both burden and "
-                "mismatch level. On these two axes together this offer is the best "
-                "available in the cohort as it stands."
+                "No reference donor was strictly lower on both current cumulative burden and "
+                "mismatch level. Ties and trade-offs between the two axes may still remain."
             )
 
     return {
-        "meta": ResponseMeta(
-            provenance=cohort.provenance,
-            threshold=profile.threshold,
-            notes=notes,
-        ),
+        "meta": _response_meta(cohort, profile, data, notes),
         "dsa_specs": result.dsa_specs,
         "dsa_count": result.dsa_count,
         "reference_size": result.reference_size,
         "identical_dsa_set_count": result.identical_dsa_set_count,
+        "offer_status": result.offer_status,
+        "basis_summaries": result.basis_summaries,
         "placements": result.placements,
         "bases_available": [b.value for b in result.bases_available],
         "peak_unavailable_reason": result.peak_unavailable_reason,
+        "recip_hla_used": recip_hla_used,
+        "recip_hla_conversions": recip_hla_conversions,
         "joint": joint,
     }
 
@@ -386,4 +555,4 @@ async def placement(request: Request, body: PlacementRequest, data=Depends(load_
 @router.get("/", response_class=HTMLResponse)
 async def offer_page(request: Request):
     """the offer assessment page"""
-    return templates.TemplateResponse("offer.html", {"request": request})
+    return templates.TemplateResponse(request, "offer.html")

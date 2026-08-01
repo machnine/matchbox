@@ -52,6 +52,15 @@ class MFIBasis(str, Enum):
     PEAK = "peak"
 
 
+class OfferStatus(str, Enum):
+    """whether a burden placement is meaningful for one MFI basis."""
+
+    RANKED = "ranked_incompatible"
+    COMPATIBLE = "compatible_no_dsa"
+    NO_ACTIVE_SPECIFICITIES = "no_active_specificities"
+    EMPTY_REFERENCE = "reference_population_empty"
+
+
 class SpecMFI(BaseModel):
     """one specificity with its current and optionally peak MFI"""
 
@@ -117,6 +126,7 @@ class Distribution(BaseModel):
     reference_size: int
     specs_used: List[str]
     specs_below_threshold: List[str]
+    specs_excluded_by_cohort: List[str]
     specs_not_in_cohort: List[str]
     percentiles_suppressed: bool
     # metric -> sorted ascending values, one per donor in the reference set
@@ -136,18 +146,40 @@ class Placement(BaseModel):
     n_higher: int
     reference_size: int
     percentile: Optional[float] = None
+    empirical_percentile_range: Optional[List[float]] = None
     percentile_ci: Optional[List[float]] = None
     suppressed_reason: Optional[str] = None
 
 
+class BasisOfferSummary(BaseModel):
+    """assessment status and DSA set for one MFI basis."""
+
+    basis: MFIBasis
+    status: OfferStatus
+    dsa_specs: List[str]
+    dsa_count: int
+    reference_size: int
+    identical_dsa_set_count: int
+    specs_used: List[str]
+    specs_below_threshold: List[str]
+    specs_excluded_by_cohort: List[str]
+
+
 class OfferPlacement(BaseModel):
-    """the full placement of an offered donor across metrics and bases"""
+    """the full placement of an offered donor across metrics and bases.
+
+    The original top-level fields describe the current-MFI basis for backwards
+    compatibility. ``basis_summaries`` is authoritative when current and peak
+    activate different DSA sets or reference populations.
+    """
 
     dsa_specs: List[str]
     dsa_count: int
     placements: Dict[str, Placement]  # "basis:metric" -> Placement
     identical_dsa_set_count: int
     reference_size: int
+    offer_status: OfferStatus
+    basis_summaries: Dict[str, BasisOfferSummary]
     bases_available: List[MFIBasis]
     peak_unavailable_reason: Optional[str] = None
 
@@ -177,6 +209,31 @@ def resolve_specs(profile_specs: List[str], donors: DataFrame) -> tuple[List[str
     present = [s for s in profile_specs if s in donors.columns]
     missing = [s for s in profile_specs if s not in donors.columns]
     return present, missing
+
+
+def resolve_profile_mfi(
+    cohort: Cohort,
+    profile: AntibodyProfile,
+    basis: MFIBasis,
+) -> tuple[Series, List[str], List[str], List[str]]:
+    """Resolve active MFI against both the selected policy and donor matrix.
+
+    ``cohort.specs`` is the effective profile after DP policy has been applied.
+    Intersecting here is essential: otherwise DP mode ``exclude`` records that
+    DP was dropped but silently scores it again because DP columns still exist in
+    the full donor frame.
+    """
+    active = profile.series_for(basis)
+    effective = set(cohort.specs)
+    matrix_present, missing = resolve_specs(list(active.index), cohort.donors)
+    present = [spec for spec in matrix_present if spec in effective]
+    excluded = [
+        spec.spec
+        for spec in profile.specs
+        if spec.spec in cohort.donors.columns and spec.spec not in effective
+    ]
+    resolved = active[present] if present else Series(dtype=float)
+    return resolved, present, missing, excluded
 
 
 def score(donors: DataFrame, mfi: Series) -> DataFrame:
@@ -254,9 +311,7 @@ def build_distribution(
     profile alone, since the same profile under a different DP mode or ABO rule
     produces a different and non-comparable distribution.
     """
-    mfi = profile.series_for(basis)
-    present, missing = resolve_specs(list(mfi.index), cohort.donors)
-    mfi = mfi[present] if present else Series(dtype=float)
+    mfi, present, missing, excluded = resolve_profile_mfi(cohort, profile, basis)
 
     reference = reference_population(cohort, present)
     scored = score(reference, mfi)
@@ -267,7 +322,8 @@ def build_distribution(
         threshold=profile.threshold,
         reference_size=len(reference),
         specs_used=present,
-        specs_below_threshold=profile.below_threshold(basis),
+        specs_below_threshold=[spec for spec in profile.below_threshold(basis) if spec in cohort.specs],
+        specs_excluded_by_cohort=excluded,
         specs_not_in_cohort=missing,
         percentiles_suppressed=len(reference) < percentile_floor,
         values=values,
@@ -297,12 +353,14 @@ def place(
     n_higher = n - n_lower - n_equal
 
     percentile = None
+    percentile_range = None
     ci = None
     reason = None
     if distribution.percentiles_suppressed:
         reason = f"reference set of {n} is below the floor of {MIN_REFERENCE_FOR_PERCENTILE} for percentiles"
     elif n:
         percentile = 100.0 * n_lower / n
+        percentile_range = [percentile, 100.0 * (n_lower + n_equal) / n]
         ci = [100.0 * b for b in wilson_interval(n_lower, n)]
 
     return Placement(
@@ -314,6 +372,7 @@ def place(
         n_higher=n_higher,
         reference_size=n,
         percentile=percentile,
+        empirical_percentile_range=percentile_range,
         percentile_ci=ci,
         suppressed_reason=reason,
     )
@@ -346,32 +405,57 @@ def assess_offer(
         peak_reason = f"peak MFI missing for {len(missing)} of {len(profile.specs)} specificities: {', '.join(missing)}"
 
     placements: Dict[str, Placement] = {}
-    dsa_specs: List[str] = []
-    reference_size = 0
-    ident_count = 0
+    basis_summaries: Dict[str, BasisOfferSummary] = {}
 
     for basis in bases:
         distribution = build_distribution(cohort, profile, basis, percentile_floor=percentile_floor)
-        reference_size = distribution.reference_size
-        mfi = profile.series_for(basis)[distribution.specs_used]
+        mfi, _, _, _ = resolve_profile_mfi(cohort, profile, basis)
 
         donor_frame = donor.to_frame().T
         scored = score(donor_frame, mfi)
 
-        if basis is MFIBasis.CURRENT:
-            dsa_specs = [s for s in distribution.specs_used if donor.get(s) == 1]
-            ident_count = identical_dsa_set_count(cohort, distribution.specs_used, dsa_specs)
+        dsa_specs = [s for s in distribution.specs_used if donor.get(s) == 1]
+        if not distribution.specs_used:
+            status = OfferStatus.NO_ACTIVE_SPECIFICITIES
+        elif not dsa_specs:
+            status = OfferStatus.COMPATIBLE
+        elif not distribution.reference_size:
+            status = OfferStatus.EMPTY_REFERENCE
+        else:
+            status = OfferStatus.RANKED
 
-        for metric in Metric:
-            value = float(scored[metric.value].iloc[0])
-            placements[f"{basis.value}:{metric.value}"] = place(distribution, value, metric)
+        ident_count = (
+            identical_dsa_set_count(cohort, distribution.specs_used, dsa_specs)
+            if status is OfferStatus.RANKED
+            else 0
+        )
+        basis_summaries[basis.value] = BasisOfferSummary(
+            basis=basis,
+            status=status,
+            dsa_specs=dsa_specs,
+            dsa_count=len(dsa_specs),
+            reference_size=distribution.reference_size,
+            identical_dsa_set_count=ident_count,
+            specs_used=distribution.specs_used,
+            specs_below_threshold=distribution.specs_below_threshold,
+            specs_excluded_by_cohort=distribution.specs_excluded_by_cohort,
+        )
+
+        if status is OfferStatus.RANKED:
+            for metric in Metric:
+                value = float(scored[metric.value].iloc[0])
+                placements[f"{basis.value}:{metric.value}"] = place(distribution, value, metric)
+
+    current = basis_summaries[MFIBasis.CURRENT.value]
 
     return OfferPlacement(
-        dsa_specs=dsa_specs,
-        dsa_count=len(dsa_specs),
+        dsa_specs=current.dsa_specs,
+        dsa_count=current.dsa_count,
         placements=placements,
-        identical_dsa_set_count=ident_count,
-        reference_size=reference_size,
+        identical_dsa_set_count=current.identical_dsa_set_count,
+        reference_size=current.reference_size,
+        offer_status=current.status,
+        basis_summaries=basis_summaries,
         bases_available=bases,
         peak_unavailable_reason=peak_reason,
     )

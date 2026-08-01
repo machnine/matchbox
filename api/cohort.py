@@ -34,7 +34,7 @@ from enum import Enum
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from pandas import DataFrame
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Donor sets available in the database. v1/v2 carry no DPB typing at all and are
 # held for replication of the non-DP pathway only; v3 is the live set.
@@ -135,11 +135,11 @@ class Provenance(BaseModel):
     dp_mode_applied: DPMode
     dp_typed_only: bool
     patient_has_dp_specs: bool
-    dp_specs_dropped: List[str] = []
+    dp_specs_dropped: List[str] = Field(default_factory=list)
     cohort_size: int
     set_size_before_dp: int
     below_stats_floor: bool
-    defaulted: List[str] = []
+    defaulted: List[str] = Field(default_factory=list)
 
     @property
     def is_dp_corroborable(self) -> bool:

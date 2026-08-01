@@ -243,6 +243,7 @@ def test_placement_percentile_uses_strictly_lower():
     dist = build_distribution(cohort_of(), PROFILE, MFIBasis.CURRENT, percentile_floor=0)
     p = place(dist, 6000, Metric.CUMULATIVE)
     assert p.percentile == pytest.approx(40.0)  # 2/5
+    assert p.empirical_percentile_range == pytest.approx([40.0, 60.0])
 
 
 def test_placement_lowest_value_has_no_donors_below():
@@ -332,12 +333,23 @@ def test_assess_offer_current_and_peak_diverge():
     assert peak == 8000  # A1 peak is double its current
 
 
-def test_assess_offer_compatible_donor_scores_zero():
-    """an offered donor with no DSA is scorable but unranked in spirit"""
+def test_peak_can_be_ranked_when_current_has_no_active_dsa():
+    profile = AntibodyProfile(specs=[SpecMFI(spec="A1", current=1000, peak=8000)], threshold=2000)
+    result = assess_offer(cohort_of(specs=["A1"]), profile, DONORS.iloc[0], percentile_floor=0)
+
+    assert result.offer_status == "no_active_specificities"
+    assert "current:cumulative" not in result.placements
+    assert result.basis_summaries["peak"].status == "ranked_incompatible"
+    assert result.placements["peak:cumulative"].value == 8000
+
+
+def test_assess_offer_compatible_donor_is_not_ranked():
+    """compatible donors do not belong in an incompatible-offer ranking."""
     result = assess_offer(cohort_of(), PROFILE, DONORS.iloc[4], percentile_floor=0)
     assert result.dsa_count == 0
-    assert result.placements["current:cumulative"].value == 0
-    assert result.placements["current:mean"].value == 0
+    assert result.offer_status == "compatible_no_dsa"
+    assert result.basis_summaries["current"].status == "compatible_no_dsa"
+    assert not any(key.startswith("current:") for key in result.placements)
 
 
 # --------------------------------------------------------------------------

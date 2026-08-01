@@ -27,10 +27,39 @@ const state = {
   roles: null,
   columns: [],
   lastText: '',
+  valid: false,
+  parseGeneration: 0,
+  assessmentGeneration: 0,
 };
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => (n === null || n === undefined ? '—' : n.toLocaleString());
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function errorMessage(payload, fallback) {
+  if (!payload) return fallback;
+  if (typeof payload.detail === 'string') return payload.detail;
+  if (Array.isArray(payload.detail)) return payload.detail.map((item) => item.msg).join('; ');
+  return fallback;
+}
+
+async function responseJson(response) {
+  try {
+    return await response.json();
+  } catch (_error) {
+    return null;
+  }
+}
+
+function showAssessmentError(message) {
+  const container = $('assessment-error');
+  container.innerHTML = '';
+  if (!message) return;
+  const error = document.createElement('div');
+  error.className = 'problem error mt-2';
+  error.textContent = message;
+  container.appendChild(error);
+}
 
 // ---------------------------------------------------------------------------
 // parsing
@@ -39,21 +68,36 @@ const fmt = (n) => (n === null || n === undefined ? '—' : n.toLocaleString());
 async function parsePaste(useRoles) {
   const text = $('paste-box').value;
   if (!text.trim()) return;
+  const generation = ++state.parseGeneration;
   state.lastText = text;
 
   const body = { text };
   if (useRoles && state.roles) body.roles = state.roles;
 
-  const response = await fetch('/offer/parse', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const result = await response.json();
+  let response;
+  try {
+    response = await fetch('/offer/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (_error) {
+    if (generation === state.parseGeneration) renderProblems([{ message: 'Unable to parse the profile.' }]);
+    return;
+  }
+  const result = await responseJson(response);
+  if (generation !== state.parseGeneration) return;
+  if (!response.ok || !result) {
+    state.valid = false;
+    renderProblems([{ message: errorMessage(result, 'Unable to parse the profile.') }]);
+    updateAssessButton();
+    return;
+  }
 
   state.rows = result.rows;
   state.roles = result.roles;
   state.columns = result.columns;
+  state.valid = result.ok;
 
   renderRoles(result);
   renderPreview(result);
@@ -125,7 +169,9 @@ function renderPreview(result) {
         spec.appendChild(raw);
       }
     } else {
-      spec.innerHTML = `<s>${row.raw_spec}</s>`;
+      const struck = document.createElement('s');
+      struck.textContent = row.raw_spec;
+      spec.appendChild(struck);
     }
 
     const current = document.createElement('td');
@@ -161,7 +207,7 @@ function renderProblems(problems) {
       button.textContent = suggestion;
       button.addEventListener('click', () => {
         $('paste-box').value = $('paste-box').value.replace(
-          new RegExp(`\\b${problem.token}\\b`), suggestion);
+          new RegExp(`\\b${escapeRegExp(problem.token)}\\b`), suggestion);
         parsePaste(true);
       });
       div.appendChild(button);
@@ -175,56 +221,106 @@ function renderProblems(problems) {
 // ---------------------------------------------------------------------------
 
 function profilePayload() {
+  const threshold = Number.parseFloat($('threshold').value);
   return {
     bg: $('bg').value,
     specs: state.rows
       .filter((r) => r.recognised && r.current !== null)
       .map((r) => ({ spec: r.spec, current: r.current, peak: r.peak })),
     dp_mode: $('dp-mode').value,
-    threshold: parseFloat($('threshold').value) || 2000,
+    threshold: Number.isFinite(threshold) ? threshold : 2000,
   };
 }
 
 function updateAssessButton() {
   const hasSpecs = state.rows.some((r) => r.recognised && r.current !== null);
   const hasDonor = $('donor-hla').value.trim().length > 0;
-  $('btn-assess').disabled = !(hasSpecs && hasDonor);
+  const aboSupported = $('donor-bg').value === $('bg').value;
+  $('btn-assess').disabled = !(state.valid && hasSpecs && hasDonor && aboSupported);
+  if (!aboSupported) {
+    showAssessmentError('This build can only compare a blood-group-identical offer. The offerable ABO policy mapping is not yet encoded.');
+  }
+}
+
+function setAssessmentBusy(busy) {
+  $('btn-assess').disabled = busy
+    || !state.valid
+    || !$('donor-hla').value.trim()
+    || $('donor-bg').value !== $('bg').value;
+  $('assess-label').textContent = busy ? 'Assessing…' : 'Assess offer';
+  $('btn-assess').setAttribute('aria-busy', busy ? 'true' : 'false');
+}
+
+function finishAssessment(generation) {
+  if (generation === state.assessmentGeneration) setAssessmentBusy(false);
 }
 
 async function assess() {
+  const generation = ++state.assessmentGeneration;
+  showAssessmentError('');
+  setAssessmentBusy(true);
   const donorText = $('donor-hla').value.trim();
-  const donorResponse = await fetch('/offer/parse-donor', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: donorText }),
-  });
-  const donorResult = await donorResponse.json();
-
-  if (donorResult.problems.length) {
-    $('donor-parse').innerHTML = donorResult.problems
-      .map((p) => `<span class="text-danger">${p.message}</span>`)
-      .join('<br>');
+  let donorResponse;
+  try {
+    donorResponse = await fetch('/offer/parse-donor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: donorText }),
+    });
+  } catch (_error) {
+    if (generation === state.assessmentGeneration) showAssessmentError('Unable to validate the donor HLA type.');
+    finishAssessment(generation);
     return;
   }
+  const donorResult = await responseJson(donorResponse);
+  if (generation !== state.assessmentGeneration) return;
+
+  if (!donorResponse.ok || !donorResult || (donorResult.problems || []).length) {
+    $('donor-parse').textContent = donorResult?.problems?.map((problem) => problem.message).join('; ')
+      || errorMessage(donorResult, 'Unable to validate the donor HLA type.');
+    $('donor-parse').classList.add('text-danger');
+    finishAssessment(generation);
+    return;
+  }
+  $('donor-parse').classList.remove('text-danger');
   $('donor-parse').textContent = `Recognised: ${donorResult.antigens.join(', ')}`;
 
-  const payload = { ...profilePayload(), donor_hla: donorResult.antigens };
+  const payload = {
+    ...profilePayload(),
+    donor_hla: donorResult.antigens,
+    donor_bg: $('donor-bg').value,
+  };
   const recipHla = $('recip-hla').value.trim();
   if (recipHla) payload.recip_hla = recipHla;
 
-  const response = await fetch('/offer/placement', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    $('problems').innerHTML = `<div class="problem error">${error.detail}</div>`;
+  let response;
+  try {
+    response = await fetch('/offer/placement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (_error) {
+    if (generation === state.assessmentGeneration) showAssessmentError('Unable to calculate the offer assessment.');
+    finishAssessment(generation);
     return;
   }
 
-  render(await response.json());
+  if (!response.ok) {
+    const error = await responseJson(response);
+    if (generation === state.assessmentGeneration) showAssessmentError(errorMessage(error, 'Assessment failed.'));
+    finishAssessment(generation);
+    return;
+  }
+
+  const result = await responseJson(response);
+  if (!result) {
+    if (generation === state.assessmentGeneration) showAssessmentError('The assessment returned an unreadable response.');
+    finishAssessment(generation);
+    return;
+  }
+  if (generation === state.assessmentGeneration) render(result);
+  finishAssessment(generation);
 }
 
 // ---------------------------------------------------------------------------
@@ -236,16 +332,109 @@ function render(result) {
   $('results').classList.remove('d-none');
 
   renderProvenance(result.meta);
-
-  $('hl-dsa').textContent = result.dsa_count;
-  $('hl-ref').textContent = fmt(result.reference_size);
-  $('hl-same').textContent = fmt(result.identical_dsa_set_count);
-  $('hl-specs').innerHTML = result.dsa_specs.length
-    ? result.dsa_specs.map((s) => `<span class="badge bg-danger-subtle text-danger-emphasis">${s}</span>`).join(' ')
-    : '<span class="text-success">No DSA against this donor</span>';
-
+  const current = result.basis_summaries.current;
+  $('hl-dsa').textContent = current.dsa_count;
+  $('hl-ref').textContent = fmt(current.reference_size);
+  $('hl-same').textContent = fmt(current.identical_dsa_set_count);
+  renderDsaSpecs(current.dsa_specs);
+  renderPrimary(result, current);
   renderMetrics(result);
   renderJoint(result.joint);
+}
+
+function renderDsaSpecs(specs) {
+  const container = $('hl-specs');
+  container.innerHTML = '';
+  if (!specs.length) {
+    const none = document.createElement('span');
+    none.className = 'text-success';
+    none.textContent = 'No current DSA against this donor at the selected threshold';
+    container.appendChild(none);
+    return;
+  }
+  specs.forEach((spec) => {
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-danger-subtle text-danger-emphasis me-1';
+    badge.textContent = spec;
+    container.appendChild(badge);
+  });
+}
+
+function renderPrimary(result, summary) {
+  const status = $('summary-status');
+  const visual = $('ranking-visual');
+  const metricCard = $('metric-card');
+  status.className = 'badge mb-2';
+
+  if (summary.status !== 'ranked_incompatible') {
+    visual.classList.add('d-none');
+    metricCard.classList.toggle('d-none', Object.keys(result.placements).length === 0);
+    $('summary-value').textContent = '—';
+    if (summary.status === 'compatible_no_dsa') {
+      status.classList.add('text-bg-success');
+      status.textContent = 'Compatible at threshold';
+      $('summary-title').textContent = 'Burden ranking is not applicable';
+      $('summary-copy').textContent = 'No current DSA was detected against this donor. Compatible offers are not ranked inside the incompatible-donor reference.';
+    } else if (summary.status === 'no_active_specificities') {
+      status.classList.add('text-bg-warning');
+      status.textContent = 'No active DSA profile';
+      $('summary-title').textContent = 'Nothing remains to rank';
+      $('summary-copy').textContent = 'No current specificities remain above the selected threshold after cohort policy was applied.';
+    } else {
+      status.classList.add('text-bg-warning');
+      status.textContent = 'Reference unavailable';
+      $('summary-title').textContent = 'No incompatible reference donors observed';
+      $('summary-copy').textContent = 'The offer carries DSA, but this cohort contains no comparable incompatible donors.';
+    }
+    return;
+  }
+
+  visual.classList.remove('d-none');
+  metricCard.classList.remove('d-none');
+  const placement = result.placements['current:cumulative'];
+  const lowerShare = placement.reference_size ? placement.n_lower / placement.reference_size : 0;
+  status.classList.add(lowerShare <= 0.1 ? 'text-bg-success' : lowerShare >= 0.75 ? 'text-bg-danger' : 'text-bg-primary');
+  status.textContent = 'Current cumulative burden';
+  $('summary-title').textContent = positionTitle(placement);
+  $('summary-copy').textContent = `${fmt(placement.n_lower)} incompatible donors had lower burden (potentially easier), ${fmt(placement.n_equal)} had the same burden, and ${fmt(placement.n_higher)} had higher burden (potentially harder).`;
+  $('summary-value').textContent = fmt(Math.round(placement.value));
+  $('summary-lower').textContent = fmt(placement.n_lower);
+  $('summary-equal').textContent = fmt(placement.n_equal);
+  $('summary-higher').textContent = fmt(placement.n_higher);
+  renderRankStack($('summary-bar'), placement);
+
+  if (placement.empirical_percentile_range) {
+    const [low, high] = placement.empirical_percentile_range;
+    $('summary-denominator').textContent = `Among ${fmt(placement.reference_size)} current incompatible donors, ties place this offer across the ${low.toFixed(1)}–${high.toFixed(1)}% range from the low-burden end.`;
+  } else {
+    $('summary-denominator').textContent = `${fmt(placement.reference_size)} current incompatible donors observed; too few for a stable percentage, so use the counts above.`;
+  }
+}
+
+function positionTitle(placement) {
+  if (placement.n_lower === 0) return 'No lower-burden reference donor was observed';
+  const share = placement.n_lower / placement.reference_size;
+  if (share <= 0.1) return 'Near the lowest-burden end of the reference';
+  if (share <= 0.25) return 'Toward the lower-burden end of the reference';
+  if (share >= 0.75) return 'Toward the higher-burden end of the reference';
+  return 'Within the middle of the reference burden range';
+}
+
+function renderRankStack(container, placement) {
+  container.innerHTML = '';
+  const groups = [
+    ['lower', placement.n_lower],
+    ['equal', placement.n_equal],
+    ['higher', placement.n_higher],
+  ];
+  groups.forEach(([name, count]) => {
+    const segment = document.createElement('span');
+    segment.className = `rank-segment rank-segment-${name}`;
+    segment.style.width = `${placement.reference_size ? (count / placement.reference_size) * 100 : 0}%`;
+    segment.title = `${fmt(count)} donors with ${name === 'equal' ? 'the same' : name} burden`;
+    container.appendChild(segment);
+  });
+  container.setAttribute('aria-label', `${fmt(placement.n_lower)} lower burden, ${fmt(placement.n_equal)} same burden, ${fmt(placement.n_higher)} higher burden`);
 }
 
 function renderJoint(joint) {
@@ -256,35 +445,35 @@ function renderJoint(joint) {
   }
   card.classList.remove('d-none');
 
-  const bands = [...new Set(joint.cells.map((c) => c.burden_band))].sort();
   const body = $('joint-body');
   body.innerHTML = '';
 
-  bands.forEach((band) => {
+  [1, 2, 3, 4].forEach((band) => {
     const tr = document.createElement('tr');
     const label = document.createElement('td');
-    label.textContent = band === 1 ? `Band ${band} (lowest)` : `Band ${band}`;
+    label.textContent = band === 1 ? 'Group 1 · lowest burden' : band === 4 ? 'Group 4 · highest burden' : `Group ${band}`;
     tr.appendChild(label);
 
     [1, 2, 3, 4].forEach((level) => {
       const cell = joint.cells.find((c) => c.burden_band === band && c.mismatch_level === level);
       const td = document.createElement('td');
-      td.textContent = cell ? cell.count.toLocaleString() : '·';
+      const count = cell ? cell.count : 0;
+      td.textContent = count ? count.toLocaleString() : '—';
+      td.style.setProperty('--heat', joint.reference_size ? Math.min(0.75, count / joint.reference_size * 8) : 0);
       if (band === joint.offered_burden_band && level === joint.offered_mismatch_level) {
-        td.className = 'offered';
+        td.classList.add('offered');
         td.title = 'The offered donor sits here';
+        const marker = document.createElement('span');
+        marker.className = 'offer-cell-marker';
+        marker.textContent = 'Offer';
+        td.appendChild(marker);
       }
       tr.appendChild(td);
     });
     body.appendChild(tr);
   });
 
-  // the number neither axis answers alone
-  $('joint-summary').innerHTML =
-    `<strong>${fmt(joint.n_better_on_both)}</strong> donors are better on both axes `
-    + `(lower burden <em>and</em> a better mismatch level); `
-    + `<strong>${fmt(joint.n_worse_on_both)}</strong> are worse on both. `
-    + `<span class="text-muted">Banded on ${joint.metric} (${joint.basis}).</span>`;
+  $('joint-summary').textContent = `This offer is in burden group ${joint.offered_burden_band} and mismatch level L${joint.offered_mismatch_level}. ${fmt(joint.n_better_on_both)} reference donors were strictly better on both axes; ${fmt(joint.n_worse_on_both)} were strictly worse on both. Ties and one-axis trade-offs are not included in those two counts.`;
 }
 
 function renderProvenance(meta) {
@@ -293,14 +482,22 @@ function renderProvenance(meta) {
   const provenance = meta.provenance;
 
   $('prov-set').textContent = provenance.donor_set.replace('donors_', 'Set ');
-  $('prov-dp').textContent = provenance.dp_mode_applied
-    + (provenance.dp_mode_requested === 'auto' ? ' (auto)' : '');
+  if (provenance.dp_mode_requested === 'auto' && !provenance.patient_has_dp_specs) {
+    $('prov-dp').textContent = 'full cohort (auto; no DP DSA)';
+  } else if (provenance.dp_mode_applied === 'include') {
+    $('prov-dp').textContent = `DP-typed only${provenance.dp_mode_requested === 'auto' ? ' (auto)' : ''}`;
+  } else {
+    $('prov-dp').textContent = `DP excluded${provenance.dp_mode_requested === 'auto' ? ' (auto)' : ''}`;
+  }
   $('prov-cohort').textContent = provenance.dp_typed_only
     ? `${fmt(provenance.cohort_size)} of ${fmt(provenance.set_size_before_dp)}`
     : fmt(provenance.cohort_size);
   $('prov-abo').textContent = provenance.abo_rule;
   $('prov-tier').textContent = provenance.tier || '—';
   $('prov-threshold').textContent = `MFI ≥ ${fmt(meta.threshold)}`;
+  const fingerprint = meta.data_provenance?.donor_database_sha256;
+  $('prov-data').textContent = fingerprint ? fingerprint.slice(0, 10) : '—';
+  $('prov-data').title = fingerprint || '';
 
   const notes = $('prov-notes');
   notes.innerHTML = '';
@@ -310,7 +507,10 @@ function renderProvenance(meta) {
       || note.includes('too small')
       || note.includes('discarded')
       || note.includes('cannot discriminate');
-    div.className = `prov-note${critical ? ' critical' : ''}`;
+    const warning = note.includes('restricted to blood-group-identical')
+      || note.includes('not comparable')
+      || note.includes('different incompatible reference populations');
+    div.className = `prov-note${critical ? ' critical' : warning ? ' warning' : ''}`;
     div.textContent = note;
     notes.appendChild(div);
   });
@@ -320,86 +520,77 @@ function renderMetrics(result) {
   const container = $('metric-panels');
   container.innerHTML = '';
 
+  renderMetricAgreement(result);
   METRIC_ORDER.forEach((metric) => {
-    const panel = document.createElement('div');
-    panel.className = 'metric-panel';
+    const row = document.createElement('div');
+    row.className = `metric-row${metric === 'cumulative' ? ' metric-row-primary' : ''}`;
 
-    const header = document.createElement('div');
-    header.className = 'metric-panel-header';
-    header.innerHTML = `<span>${metric}</span>`
-      + `<span class="metric-definition">${METRIC_DEFINITIONS[metric]}</span>`;
-    panel.appendChild(header);
-
-    // current and peak in the same panel: their divergence is the signal
-    result.bases_available.forEach((basis) => {
-      const placement = result.placements[`${basis}:${metric}`];
-      if (placement) panel.appendChild(basisRow(basis, placement, metric));
-    });
-
-    if (result.peak_unavailable_reason && result.bases_available.length === 1) {
-      const note = document.createElement('div');
-      note.className = 'basis-row text-muted small fst-italic';
-      note.textContent = result.peak_unavailable_reason;
-      panel.appendChild(note);
-    }
-
-    container.appendChild(panel);
+    const identity = document.createElement('div');
+    identity.className = 'metric-identity';
+    const name = document.createElement('strong');
+    name.textContent = metric[0].toUpperCase() + metric.slice(1);
+    const definition = document.createElement('span');
+    definition.textContent = METRIC_DEFINITIONS[metric];
+    identity.append(name, definition);
+    row.appendChild(identity);
+    row.appendChild(metricBasisCell('Current', result.placements[`current:${metric}`], result.basis_summaries.current));
+    row.appendChild(metricBasisCell('Peak', result.placements[`peak:${metric}`], result.basis_summaries.peak, result.peak_unavailable_reason));
+    container.appendChild(row);
   });
 }
 
-function basisRow(basis, placement, metric) {
-  const row = document.createElement('div');
-  row.className = 'basis-row';
-
-  const tag = document.createElement('span');
-  tag.className = 'basis-tag';
-  tag.textContent = basis;
-
-  const value = document.createElement('span');
-  value.className = 'basis-value';
+function metricBasisCell(label, placement, summary, unavailableReason) {
+  const cell = document.createElement('div');
+  cell.className = 'metric-basis-cell';
+  const heading = document.createElement('div');
+  heading.className = 'metric-basis-label';
+  heading.textContent = label;
+  cell.appendChild(heading);
+  if (!summary) {
+    const unavailable = document.createElement('div');
+    unavailable.className = 'small text-muted';
+    unavailable.textContent = unavailableReason || 'Unavailable';
+    cell.appendChild(unavailable);
+    return cell;
+  }
+  if (!placement) {
+    const unavailable = document.createElement('div');
+    unavailable.className = 'small text-muted';
+    unavailable.textContent = summary.status === 'compatible_no_dsa' ? 'No DSA; not ranked' : 'No placement available';
+    cell.appendChild(unavailable);
+    return cell;
+  }
+  const value = document.createElement('div');
+  value.className = 'metric-value';
   value.textContent = fmt(Math.round(placement.value));
-
-  // the count first and largest: it survives translation into a clinical
-  // conversation, and it moves with the ABO denominator where the percentile
-  // barely does
-  const counts = document.createElement('div');
-  counts.innerHTML =
-    `<div class="count-primary">${fmt(placement.n_lower)} lower</div>`
-    + `<div class="count-detail">${fmt(placement.n_equal)} equal · `
-    + `${fmt(placement.n_higher)} higher · of ${fmt(placement.reference_size)}</div>`;
-
+  const comparison = document.createElement('div');
+  comparison.className = 'metric-comparison-copy';
+  comparison.textContent = `${fmt(placement.n_lower)} lower · ${fmt(placement.n_equal)} same · ${fmt(placement.n_higher)} higher`;
+  const range = document.createElement('div');
+  range.className = 'metric-range';
+  range.textContent = placement.empirical_percentile_range
+    ? `${placement.empirical_percentile_range[0].toFixed(1)}–${placement.empirical_percentile_range[1].toFixed(1)}% from low end · n=${fmt(placement.reference_size)}`
+    : `counts only · n=${fmt(placement.reference_size)}`;
   const bar = document.createElement('div');
-  bar.className = 'dist-bar';
-  if (placement.reference_size) {
-    const lowerFrac = placement.n_lower / placement.reference_size;
-    const tieFrac = placement.n_equal / placement.reference_size;
-    const tie = document.createElement('div');
-    tie.className = 'dist-tie';
-    tie.style.left = `${lowerFrac * 100}%`;
-    tie.style.width = `${Math.max(tieFrac * 100, 0.5)}%`;
-    bar.appendChild(tie);
-    const marker = document.createElement('div');
-    marker.className = 'dist-marker';
-    marker.style.left = `${lowerFrac * 100}%`;
-    bar.appendChild(marker);
-  }
+  bar.className = 'rank-stack rank-stack-small mt-2';
+  renderRankStack(bar, placement);
+  cell.append(value, comparison, range, bar);
+  return cell;
+}
 
-  const percentile = document.createElement('div');
-  percentile.className = 'percentile-secondary';
-  if (placement.percentile === null || placement.percentile === undefined) {
-    percentile.innerHTML = `<span class="percentile-suppressed">too few to characterise</span>`;
-  } else {
-    // metric identity travels with the number: a screenshot of a percentile must
-    // be unambiguous about which ordering produced it
-    const ci = placement.percentile_ci
-      ? ` <span class="text-muted">(${placement.percentile_ci[0].toFixed(0)}–${placement.percentile_ci[1].toFixed(0)})</span>`
-      : '';
-    percentile.innerHTML = `${placement.percentile.toFixed(1)}th${ci}`
-      + `<div class="count-detail">${metric} · ${basis}</div>`;
+function renderMetricAgreement(result) {
+  const box = $('metric-agreement');
+  const placements = METRIC_ORDER.map((metric) => result.placements[`current:${metric}`]).filter(Boolean);
+  if (!placements.length) {
+    box.className = 'd-none';
+    return;
   }
-
-  row.append(tag, value, counts, bar, percentile);
-  return row;
+  const shares = placements.map((placement) => placement.n_lower / placement.reference_size);
+  const spread = Math.max(...shares) - Math.min(...shares);
+  box.className = `metric-agreement ${spread >= 0.25 ? 'metric-agreement-warning' : 'metric-agreement-neutral'}`;
+  box.textContent = spread >= 0.25
+    ? 'The burden measures disagree materially about this offer’s position. Review the DSA pattern and do not quote a single rank as the answer.'
+    : 'The burden measures place this offer in broadly similar parts of their observed distributions.';
 }
 
 // ---------------------------------------------------------------------------
@@ -412,6 +603,7 @@ $('btn-parse').addEventListener('click', () => {
 });
 
 $('btn-clear').addEventListener('click', () => {
+  state.parseGeneration += 1;
   $('paste-box').value = '';
   $('preview').classList.add('d-none');
   $('role-row').classList.add('d-none');
@@ -419,16 +611,32 @@ $('btn-clear').addEventListener('click', () => {
   $('spec-count').textContent = '0 specificities';
   state.rows = [];
   state.roles = null;
+  state.valid = false;
+  invalidateResults();
   updateAssessButton();
 });
 
 $('btn-assess').addEventListener('click', assess);
-$('donor-hla').addEventListener('input', updateAssessButton);
+$('donor-hla').addEventListener('input', () => {
+  invalidateResults();
+  updateAssessButton();
+});
+$('recip-hla').addEventListener('input', invalidateResults);
 
-// re-assess on toggle change: these alter the reference set, not the display
-['bg', 'dp-mode', 'threshold'].forEach((id) => {
+let previousRecipientBg = $('bg').value;
+$('bg').addEventListener('change', () => {
+  if ($('donor-bg').value === previousRecipientBg) $('donor-bg').value = $('bg').value;
+  previousRecipientBg = $('bg').value;
+  invalidateResults();
+  showAssessmentError('');
+  updateAssessButton();
+});
+
+['donor-bg', 'dp-mode', 'threshold'].forEach((id) => {
   $(id).addEventListener('change', () => {
-    if (!$('results').classList.contains('d-none')) assess();
+    invalidateResults();
+    showAssessmentError('');
+    updateAssessButton();
   });
 });
 
@@ -439,3 +647,18 @@ $('paste-box').addEventListener('paste', () => {
     parsePaste(false);
   }, 10);
 });
+$('paste-box').addEventListener('input', () => {
+  state.parseGeneration += 1;
+  state.valid = false;
+  invalidateResults();
+  updateAssessButton();
+});
+
+function invalidateResults() {
+  state.assessmentGeneration += 1;
+  $('assess-label').textContent = 'Assess offer';
+  $('btn-assess').setAttribute('aria-busy', 'false');
+  $('results').classList.add('d-none');
+  $('placeholder').classList.remove('d-none');
+  $('provenance').classList.add('d-none');
+}

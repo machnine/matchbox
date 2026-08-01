@@ -78,6 +78,8 @@ def mismatch_counts(
 
 def mismatch_grade(b_mm: int, dr_mm: int) -> str:
     """NHSBT mismatch grade from B and DR broad mismatch counts"""
+    if b_mm not in range(3) or dr_mm not in range(3):
+        raise ValueError(f"invalid B/DR mismatch counts: B={b_mm}, DR={dr_mm}")
     if dr_mm == 0 and b_mm < 2:
         return "m12a"  # 000 or 0DR, 0/1B
     if dr_mm == 1 and b_mm == 0:
@@ -88,7 +90,9 @@ def mismatch_grade(b_mm: int, dr_mm: int) -> str:
         return "m3b"  # 1DR, 1B
     if dr_mm == 1 and b_mm == 2:
         return "m4a"  # 1DR, 2B
-    return "m4b"  # 2DR
+    if dr_mm == 2:
+        return "m4b"  # 2DR
+    raise ValueError(f"invalid B/DR mismatch counts: B={b_mm}, DR={dr_mm}")
 
 
 class Results(BaseModel):

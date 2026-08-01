@@ -3,6 +3,35 @@
 Working document for implementation. Written to be read cold by an agent with no
 prior conversation context.
 
+## Implementation state — 2026-08-01
+
+The current branch deliberately fails closed where the handoff still depends on
+an allocation-policy decision:
+
+- Live assessment uses the Set 3 donor data and a blood-group-identical
+  reference. Compatible non-identical offers are rejected because the
+  organ/tier offerable-ABO mapping has not been encoded from an authoritative
+  policy source.
+- DP `include`/`auto` restricts assessment to observed DP-typed donors. DP
+  `exclude` removes DP specificities from every scoring path; they cannot leak
+  back into burden or mismatch calculations through the full matrix.
+- Current and peak MFI are separate assessments. Each reports its own active
+  specificity set, DSA set and incompatible-reference denominator.
+- A DSA-negative offered donor is reported as compatible at the selected
+  threshold and is not assigned a zero-burden rank within the incompatible set.
+- Offered-donor typing must cover every active antibody locus. An omitted locus
+  is treated as unknown and rejected rather than interpreted as negative.
+- Recipient and offered-donor B/DR splits are canonicalised to the broad
+  matchability vocabulary before mismatch level is calculated.
+- Every response now carries the verified donor-data provenance and calculation
+  policy version. The visualization leads with lower/same/higher observed counts
+  and the empirical tie range; it does not present a tie-heavy ordinal as a
+  precise rank.
+
+The tier-derived offerable ABO mapping, waiting-time route and organ-specific
+policy bundles remain unimplemented because they require authoritative policy
+decisions rather than inference from the cohort.
+
 ---
 
 ## 1. What this tool is
@@ -115,7 +144,7 @@ This is the central data constraint and it must be visible in the product, not
 buried.
 
 - A patient **with DP antibodies** can only be assessed against Set 3's
-  DP-typed subset — roughly 3,571 donors, not 10,000.
+  DP-typed subset — 3,642 donors in the verified artifact, not 10,000.
 - That assessment **cannot be corroborated** by Sets 1 or 2. State this as a
   limitation rather than letting the validation design imply otherwise.
 - A patient **without DP antibodies** is assessed against a full 10,000 in all
@@ -220,8 +249,10 @@ toggle and the ABO denominator. Tier derivation therefore inherits both choices.
 | Tier | Optional override. Response states whether derived or supplied. |
 
 Antigen vocabulary is fixed at broad/split, matching the donor database exactly.
-Reuse the existing calculator's vocabulary and validation. Conversion from
-allele-level is the caller's responsibility and explicitly out of scope.
+Reuse the existing calculator's vocabulary and validation. The paste and donor
+text endpoints normalise common allele-level forms to that vocabulary and show
+the resolved value before assessment. Direct structured API arrays must already
+contain vocabulary values.
 
 Document the broad/split matching rule precisely — whether a patient antibody
 entered as a broad implies its splits in the donor cohort, and the reverse.
@@ -235,8 +266,11 @@ Two calls, not one:
    distributions (×2 MFI bases). Cacheable per profile; a lab assessing one
    patient over a week pays for it once, and a UI can mark several offers on one
    backdrop.
-2. **Donor → placement.** Returns values, percentiles, and counts against a
-   previously computed distribution.
+2. **Donor → placement.** Returns values and counts against the same resolved
+   distributions. The current endpoint is stateless and recomputes them from the
+   supplied profile rather than accepting a server-side distribution token;
+   clients may cache the separate distribution response, but placement does not
+   currently reuse that cached result.
 
 ### 5.3 Response must be self-describing
 
