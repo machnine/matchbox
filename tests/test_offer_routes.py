@@ -83,6 +83,17 @@ def test_parse_endpoint_returns_preview():
     assert [r["spec"] for r in body["rows"]] == ["A1", "B7"]
 
 
+def test_parse_treats_peak_below_current_as_non_blocking_unavailable_data():
+    body = client.post(
+        "/offer/parse",
+        json={"text": "Specificity\tCurrent\tPeak\nA1\t6000\t9000\nDR15\t4000\t2500"},
+    ).json()
+
+    assert body["ok"] is True
+    assert body["rows"][1]["peak"] is None
+    assert any(problem["kind"] == "peak_below_current" for problem in body["problems"])
+
+
 def test_parse_endpoint_normalises_allele_forms():
     response = client.post("/offer/parse", json={"text": "DPB1*04:01\t4000\nC*07:02\t3000"})
     body = response.json()

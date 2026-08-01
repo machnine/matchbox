@@ -28,6 +28,10 @@ from pydantic import BaseModel
 # specificity list within a cell.
 DELIMITERS = [("\t", "tab"), (",", "comma"), (";", "semicolon"), ("|", "pipe")]
 
+# These conditions alter or omit optional data but still leave a safe current-MFI
+# profile that can be assessed. They remain visible to the user as warnings.
+NON_BLOCKING_PROBLEM_KINDS = frozenset({"peak_below_current"})
+
 # Header tokens that identify a column's role. Matched case-insensitively as
 # substrings, longest first, so "peak mfi" beats "mfi".
 ROLE_HINTS = {
@@ -79,7 +83,7 @@ class ParseResult(BaseModel):
 
     @property
     def ok(self) -> bool:
-        return not self.problems
+        return not any(problem.kind not in NON_BLOCKING_PROBLEM_KINDS for problem in self.problems)
 
     @property
     def recognised_rows(self) -> List[ParsedRow]:
@@ -411,9 +415,13 @@ def parse(
                         kind="peak_below_current",
                         row=n,
                         token=spec,
-                        message=f"{spec} peak ({peak:.0f}) is below current ({current:.0f})",
+                        message=(
+                            f"{spec} peak ({peak:.0f}) is below current ({current:.0f}); "
+                            "that peak was treated as unavailable"
+                        ),
                     )
                 )
+                peak = None
 
         rows.append(
             ParsedRow(

@@ -286,6 +286,8 @@ def test_parse_flags_duplicate_after_normalisation():
 def test_parse_flags_peak_below_current():
     result = parse("Spec\tCurrent\tPeak\nA1\t8000\t4000", VOCAB)
     assert any(p.kind == "peak_below_current" for p in result.problems)
+    assert result.rows[0].peak is None
+    assert result.ok
 
 
 def test_parse_flags_negative_mfi():
@@ -311,11 +313,11 @@ def test_parse_without_spec_column_fails_clearly():
 
 def test_parse_respects_supplied_roles():
     """the UI's per-column dropdown overrides detection"""
-    text = "A1\t4000\t8000"
+    text = "A1\t8000\t4000"
     roles = [ColumnRole.SPEC, ColumnRole.PEAK_MFI, ColumnRole.CURRENT_MFI]
     result = parse(text, VOCAB, roles=roles)
-    assert result.rows[0].peak == 4000
-    assert result.rows[0].current == 8000
+    assert result.rows[0].peak == 8000
+    assert result.rows[0].current == 4000
 
 
 def test_parse_handles_comma_separated_export():
