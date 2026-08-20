@@ -96,7 +96,7 @@ def test_calc_get_endpoint():
     )
     results = response.json().get("results")
     assert response.status_code == 200
-    assert results["crf"] ==  0.2857142857142857
+    assert results["crf"] == 0.2857142857142857
     assert results["available"] == 35
     assert results["favourable"] == 35
     assert results["matchability"] == 2

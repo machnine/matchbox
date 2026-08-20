@@ -8,11 +8,13 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 from .assets import asset_version
 from .calculator import Calculator
 from .data import load_data
 from .input_validation import AntigenValidationError, validate_recipient_hla, validate_specificities
+from .parser import parse_donor_type
 from .ratelimiter import limiter
 from .recipient import canonicalise_recipient_hla
 from .schemas import CalculationResponse
@@ -20,11 +22,6 @@ from .schemas import CalculationResponse
 router = APIRouter()
 templates = Jinja2Templates(directory="web")
 templates.env.globals["asset_version"] = asset_version
-
-# Batch clients legitimately evaluate many profiles in succession. Keep a
-# per-client ceiling, but allow local/deployment operators to tune it without a
-# code change when running controlled calculations.
-CALCULATION_RATE_LIMIT = os.getenv("MATCHBOX_CALC_RATE_LIMIT", "300/minute")
 
 CALCULATION_CONTEXTS = {
     0: {
@@ -36,6 +33,12 @@ CALCULATION_CONTEXTS = {
         "calculation_mode": "dp_typed_subset",
     },
 }
+
+
+class NormaliseRequest(BaseModel):
+    """a block of pasted antigen tokens"""
+
+    text: str
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -60,7 +63,7 @@ async def crf_explainer(request: Request):
 
 
 @router.get("/calc/", response_model=CalculationResponse)
-@limiter.limit(CALCULATION_RATE_LIMIT, error_message="Too many calculation requests, slow down!")
+@limiter.limit("60/minute", error_message="Too many requests, slow down!")
 async def calc(
     request: Request,
     bg: str = Query(..., max_length=2, pattern=r"^[ABO]$|^AB$", description="Blood group"),
@@ -119,3 +122,19 @@ async def calc(
 async def broad_split(data=Depends(load_data)):
     """get broad/split antigen mappings"""
     return data.broad_split
+
+
+@router.post("/normalise/")
+@limiter.limit("60/minute", error_message="Too many requests, slow down!")
+async def normalise(request: Request, body: NormaliseRequest, data=Depends(load_data)):
+    """normalise a list of pasted antigens against the cohort vocabulary
+
+    The rules (allele forms, C/CW, DP/DPB, leading zeros, HLA- prefixes) live in
+    api/parser.py and are applied server-side, so they are stated once and tested
+    directly rather than duplicated as regexes in the browser.
+
+    Unmatched tokens come back with suggestions rather than being discarded.
+    """
+    vocabulary = [ag for ags in data.antigens.values() for ag in ags]
+    found, problems = parse_donor_type(body.text, vocabulary)
+    return {"antigens": found, "problems": problems, "ok": not problems}

@@ -74,7 +74,7 @@ def test_html_exposes_selectors_used_by_shared_url_contract():
     assert "antigen-checkbox" in html
     assert html.count("recip-hla-select") == 4
     assert 'id="id_dp-toggle"' in html
-    assert '>A</small>' in html
+    assert ">A</small>" in html
     assert 'id="id_B7"' in html  # representative antigen checkbox from mock
     assert "mock-source.xlsb" in html
     assert "123,456" in html
@@ -101,9 +101,7 @@ def test_scripts_js_declares_shared_url_contract():
     """scripts.js must read the four param names /calc/ exposes:
     bg, specs, recip_hla, donor_set. And the DOM selectors it relies on."""
     src = Path("static/scripts.js").read_text(encoding="utf-8")
-    restore_block = src.split("const restoreFromQueryParams = () => {", 1)[1].split(
-        "document.addEventListener", 1
-    )[0]
+    restore_block = src.split("const restoreFromQueryParams = () => {", 1)[1].split("document.addEventListener", 1)[0]
     # query-param names must match api/route.py:calc() signature
     assert "params.get('bg')" in restore_block
     assert "params.getAll('specs')" in restore_block
