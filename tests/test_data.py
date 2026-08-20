@@ -151,12 +151,50 @@ def test_data_provenance_fingerprints_the_derived_database():
     assert loader.provenance.model_dump() == {
         "upstream_source_file": "source-release.xlsb",
         "upstream_source_file_size_signature": 123_456,
+        "upstream_source_file_sha256": None,
         "donor_database": "test-donors.db",
         "donor_database_sha256": expected_sha256,
         "donor_table": "test_donors_v7",
         "matchability_band_version": 7,
         "data_release": None,
     }
+
+
+def test_declared_upstream_sha256_is_carried_into_provenance():
+    """A supplied upstream hash reaches provenance rather than being dropped."""
+    database_bytes = b"derived donor database fixture"
+    upstream_sha256 = "a" * 64
+
+    with (
+        patch.object(Path, "is_file", return_value=True),
+        patch.object(Path, "open", return_value=BytesIO(database_bytes)),
+        patch("sqlite3.connect"),
+        patch.object(DataLoader, "_load_donors", return_value=(pd.DataFrame(), pd.DataFrame())),
+    ):
+        loader = DataLoader(
+            db_path="fixtures/test-donors.db",
+            table_name="test_donors_v7",
+            matchability_ver=7,
+            upstream_source_file="source-release.xlsb",
+            upstream_source_file_size_signature=123_456,
+            upstream_source_file_sha256=upstream_sha256,
+        )
+
+    assert loader.provenance.upstream_source_file_sha256 == upstream_sha256
+
+
+def test_upstream_sha256_must_be_a_full_digest():
+    """A truncated or malformed hash is rejected rather than displayed as verification."""
+    with pytest.raises(ValidationError):
+        DataProvenance(
+            upstream_source_file="source-release.xlsb",
+            upstream_source_file_size_signature=123_456,
+            upstream_source_file_sha256="66d125ad",
+            donor_database="test-donors.db",
+            donor_database_sha256="b" * 64,
+            donor_table="test_donors_v7",
+            matchability_band_version=7,
+        )
 
 
 def test_custom_database_does_not_inherit_default_upstream_lineage():

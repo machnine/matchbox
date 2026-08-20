@@ -30,6 +30,7 @@ DEFAULT_MATCHABILITY_BAND_VERSION = 4
 DEFAULT_DONOR_DATABASE_SHA256 = "b83b8255a23aaf48bce46b1cc2d14c7199bd1997fefff0b35f73e009d9d92076"
 UPSTREAM_SOURCE_FILE = "hla-mm-and-crf_2024.xlsb"
 UPSTREAM_SOURCE_FILE_SIZE_SIGNATURE = 24_099_579
+UPSTREAM_SOURCE_FILE_SHA256 = "66d125adcc94d82236bd6ba719be59b1ff7a11484f9c605c36fb9760dfc69649"
 KNOWN_DATA_RELEASE = "nhsbt_hla_mm_crf_2024"
 EXPECTED_AB_BAND_KEYS = {
     1: {1, 2, 3, 4, 5, 6, 7, 9},
@@ -50,6 +51,7 @@ class DataProvenance(BaseModel):
 
     upstream_source_file: Optional[str] = Field(default=None, min_length=1)
     upstream_source_file_size_signature: Optional[int] = Field(default=None, gt=0)
+    upstream_source_file_sha256: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     donor_database: str = Field(min_length=1)
     donor_database_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     donor_table: str = Field(min_length=1)
@@ -65,6 +67,7 @@ class DataProvenance(BaseModel):
             verified_release = (
                 self.upstream_source_file == UPSTREAM_SOURCE_FILE
                 and self.upstream_source_file_size_signature == UPSTREAM_SOURCE_FILE_SIZE_SIGNATURE
+                and self.upstream_source_file_sha256 == UPSTREAM_SOURCE_FILE_SHA256
                 and self.donor_database_sha256 == DEFAULT_DONOR_DATABASE_SHA256
                 and self.donor_table == DEFAULT_DONOR_TABLE
                 and self.matchability_band_version == DEFAULT_MATCHABILITY_BAND_VERSION
@@ -84,20 +87,23 @@ class DataLoader:
         matchability_ver: int = None,
         upstream_source_file: str = None,
         upstream_source_file_size_signature: int = None,
+        upstream_source_file_sha256: str = None,
     ):
         self.db_path = db_path or DEFAULT_DATABASE_PATH
         self.table_name = table_name or DEFAULT_DONOR_TABLE
         self.matchability_ver = matchability_ver or DEFAULT_MATCHABILITY_BAND_VERSION
         self._reject_wal_artifacts()
         database_sha256 = self._file_sha256(self.db_path)
-        source_file, source_size_signature, data_release = self._resolve_upstream_source(
+        source_file, source_size_signature, source_sha256, data_release = self._resolve_upstream_source(
             database_sha256,
             upstream_source_file,
             upstream_source_file_size_signature,
+            upstream_source_file_sha256,
         )
         self.provenance = DataProvenance(
             upstream_source_file=source_file,
             upstream_source_file_size_signature=source_size_signature,
+            upstream_source_file_sha256=source_sha256,
             donor_database=Path(self.db_path).name,
             donor_database_sha256=database_sha256,
             donor_table=self.table_name,
@@ -134,7 +140,8 @@ class DataLoader:
         database_sha256: str,
         source_file: Optional[str],
         source_size_signature: Optional[int],
-    ) -> Tuple[Optional[str], Optional[int], Optional[str]]:
+        source_sha256: Optional[str] = None,
+    ) -> Tuple[Optional[str], Optional[int], Optional[str], Optional[str]]:
         """Bind the declared upstream artifact to the known derived database release."""
         if (source_file is None) != (source_size_signature is None):
             raise ValueError("upstream source file and size signature must be supplied together")
@@ -145,10 +152,15 @@ class DataLoader:
             and self.matchability_ver == DEFAULT_MATCHABILITY_BAND_VERSION
         )
         if is_known_release:
-            return UPSTREAM_SOURCE_FILE, UPSTREAM_SOURCE_FILE_SIZE_SIGNATURE, KNOWN_DATA_RELEASE
+            return (
+                UPSTREAM_SOURCE_FILE,
+                UPSTREAM_SOURCE_FILE_SIZE_SIGNATURE,
+                UPSTREAM_SOURCE_FILE_SHA256,
+                KNOWN_DATA_RELEASE,
+            )
         if source_file is not None:
-            return source_file, source_size_signature, None
-        return None, None, None
+            return source_file, source_size_signature, source_sha256, None
+        return None, None, None, None
 
     def _reject_wal_artifacts(self) -> None:
         """Require a single checkpointed SQLite artifact for reproducible hashing."""

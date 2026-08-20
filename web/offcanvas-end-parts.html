@@ -93,6 +93,14 @@
           <i class="text-success">Not declared</i>.
           {% endif %}
         </div>
+        {% if provenance.upstream_source_file_sha256 %}
+        <div class="mb-1"
+          title="SHA-256 of the ODT Excel file: {{ provenance.upstream_source_file_sha256 }}"
+          data-bs-placement="top">
+          <span class="text-muted">SHA-256:</span>
+          <i class="text-success font-monospace">{{ provenance.upstream_source_file_sha256[:8] }}…{{ provenance.upstream_source_file_sha256[-8:] }}</i>.
+        </div>
+        {% endif %}
         {% if provenance.data_release %}
         <div class="mb-1">
           <span class="text-muted">Data release:</span>
@@ -101,7 +109,7 @@
         {% endif %}
         <div class="mb-1">
           <span class="text-muted">Created by:</span>
-          Mian Chen - <i>March 2024.</i> (v26.04.21.1)
+          Mian Chen - <i>March 2024.</i> (v26.08.20.1)
         </div>
         <div class="mb-1">
           <span class="text-muted">
