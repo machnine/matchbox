@@ -5,6 +5,77 @@ from typing import Dict, List, Optional, Set
 from pandas import DataFrame, Series
 from pydantic import BaseModel
 
+# NHSBT B/DR mismatch grades, and the levels they collapse to. Defined at module
+# level so the cutpoints are stated once and can be tested directly rather than
+# being buried in the counting loop.
+GRADE_ORDER = ("m12a", "m2b", "m3a", "m3b", "m4a", "m4b")
+GRADE_LEVELS = {"m12a": 1, "m2b": 2, "m3a": 3, "m3b": 3, "m4a": 4, "m4b": 4}
+FAVOURABLE_LEVELS = (1, 2)
+
+
+def split_by_dsa(donors: DataFrame, specs: List[str]) -> tuple:
+    """split donors into (compatible, incompatible) on the recipient's specs
+
+    The single definition of what counts as a DSA against a donor, so the
+    compatible and incompatible halves cannot disagree about the predicate that
+    separates them.
+    """
+    if not specs:
+        return donors, donors.iloc[0:0]
+    has_dsa = donors[specs].eq(1).any(axis=1)
+    return donors[~has_dsa], donors[has_dsa]
+
+
+def mismatch_counts(
+    donors: DataFrame,
+    recipient_bdr: Dict[str, Set[str]],
+    hla_bdr: Dict[str, List[str]],
+    ag_defaults: Dict[str, str],
+) -> DataFrame:
+    """B and DR broad mismatch counts for every donor in a frame
+
+    The single definition of the count. The recipient's antigen set is widened by
+    the rare-antigen defaults before differencing, so a rare antigen does not read
+    as a mismatch against its common equivalent.
+
+    Takes the frame as a parameter rather than reading it off the instance, so
+    the arithmetic can be tested against a known frame independently of a full
+    Calculator.
+    """
+    result = {}
+    for locus in ("B", "DR"):
+        columns = [c for c in hla_bdr.get(locus, []) if c in donors.columns]
+        recipient = set(recipient_bdr.get(locus, set()))
+        recipient.update({ag_defaults[ag] for ag in list(recipient) if ag in ag_defaults})
+
+        if not columns or donors.empty:
+            result[locus] = Series(0, index=donors.index, dtype=int)
+            continue
+
+        mask = donors[columns].eq(1)
+        result[locus] = mask.apply(lambda row: len(set(row.index[row]).difference(recipient)), axis=1)
+
+    return DataFrame(result, index=donors.index)
+
+
+def mismatch_grade(b_mm: int, dr_mm: int) -> str:
+    """NHSBT mismatch grade from B and DR broad mismatch counts"""
+    if b_mm not in range(3) or dr_mm not in range(3):
+        raise ValueError(f"invalid B/DR mismatch counts: B={b_mm}, DR={dr_mm}")
+    if dr_mm == 0 and b_mm < 2:
+        return "m12a"  # 000 or 0DR, 0/1B
+    if dr_mm == 1 and b_mm == 0:
+        return "m2b"  # 1DR, 0B
+    if dr_mm == 0 and b_mm == 2:
+        return "m3a"  # 0DR, 2B
+    if dr_mm == 1 and b_mm == 1:
+        return "m3b"  # 1DR, 1B
+    if dr_mm == 1 and b_mm == 2:
+        return "m4a"  # 1DR, 2B
+    if dr_mm == 2:
+        return "m4b"  # 2DR
+    raise ValueError(f"invalid B/DR mismatch counts: B={b_mm}, DR={dr_mm}")
+
 
 class Results(BaseModel):
     """Calculator spec"""
@@ -56,55 +127,26 @@ class Calculator:
 
     def _get_donors(self) -> List[DataFrame]:
         """get compatible/incompatible donors from those blood group identical"""
-        has_dsa = self.donors[self.specs].eq(1).any(axis=1)
-        return self.donors[~has_dsa], self.donors[has_dsa]
-
-    def _get_donor_types(self) -> DataFrame:
-        """get the HLA compatible donors' HLA types (no dsa): return the column name if the value is 1"""
-        # if there is no compatible donor, return empty data frame
-        if self.compatible_donors.empty:
-            return DataFrame(columns=["B", "DR"])
-
-        b_mask = self.compatible_donors[self.hla_bdr["B"]].eq(1)
-        dr_mask = self.compatible_donors[self.hla_bdr["DR"]].eq(1)
-
-        b_types = b_mask.apply(lambda x: set(x.index[x]), axis=1)
-        dr_types = dr_mask.apply(lambda x: set(x.index[x]), axis=1)
-        return DataFrame({"B": b_types, "DR": dr_types})
-
-    def _get_matching(self, dtypes: Series, locus: str) -> int:
-        """get the number of matching antigens for a given locus"""
-        # recipient B or DR types
-        recipient_bdr = self.recipient_bdr[locus].copy()
-        # add the defaults for the rarer antigens the recipient for matching
-        recipient_bdr.update({self.ag_defaults[ag] for ag in recipient_bdr if ag in self.ag_defaults})
-        # return the number of antigen matched
-        return dtypes[locus].apply(lambda d: len(d.difference(recipient_bdr)))
+        return split_by_dsa(self.donors, self.specs)
 
     def _get_matching_level_count(self) -> Optional[Dict[str, int]]:
-        """calculate matching level count"""
+        """calculate matching level count
+
+        Counts and grades both come from the module-level helpers above, so the
+        cutpoints are applied in one place rather than re-expressed as inline
+        conditions here.
+        """
         if self.recipient_bdr:
-            donor_types = self._get_donor_types()
-            b_match = self._get_matching(donor_types, "B")
-            dr_match = self._get_matching(donor_types, "DR")
-            # work out the matching grades
-            matchings = DataFrame({"B": b_match, "DR": dr_match})
+            matchings = mismatch_counts(self.compatible_donors, self.recipient_bdr, self.hla_bdr, self.ag_defaults)
+            if matchings.empty:
+                return {"fav": 0, **{grade: 0 for grade in GRADE_ORDER}}
 
-            def count_matches(dr_val, b_cond):
-                # helper function to count matches
-                if callable(b_cond):
-                    return matchings.apply(lambda row: row.DR == dr_val and b_cond(row.B), axis=1).sum()
-                return matchings.apply(lambda row: row.DR == dr_val and row.B == b_cond, axis=1).sum()
+            grades = matchings.apply(lambda row: mismatch_grade(int(row.B), int(row.DR)), axis=1)
+            counts = {grade: int((grades == grade).sum()) for grade in GRADE_ORDER}
 
-            # 'favorable' matchings:
-            m12a = count_matches(0, lambda x: x < 2)  # 000 or 0DR, 0/1B
-            m2b = count_matches(1, 0)  # 1DR, 0B
-            m3a = count_matches(0, 2)  # 0DR, 2B
-            m3b = count_matches(1, 1)  # 1DR, 1B
-            m4a = count_matches(1, 2)  # 1DR, 2B
-            m4b = count_matches(2, lambda x: True)  # 2DR
-
-            return {"fav": m12a + m2b, "m12a": m12a, "m2b": m2b, "m3a": m3a, "m3b": m3b, "m4a": m4a, "m4b": m4b}
+            # 'favourable' is levels 1 and 2
+            fav = sum(n for grade, n in counts.items() if GRADE_LEVELS[grade] in FAVOURABLE_LEVELS)
+            return {"fav": fav, **counts}
         return None
 
     def _calculate_matchability(self, fav_matched: int) -> int:

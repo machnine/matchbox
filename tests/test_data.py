@@ -111,13 +111,14 @@ def test_matchability_antigens_mothod(mock_connect, mock_read_sql_query):
     assert set(result["B"]) == set(["B44", "B27", "B5"])
     assert set(result["DR"]) == set(["DR9", "DR15", "DR1"])
 
+
 @patch("pandas.read_sql_query")
 @patch("sqlite3.connect")
 def test_antigen_defaults(mock_connect, mock_read_sql_query):
     mock_df = pd.DataFrame({"rare": ["A36", "B42", "DR9"], "default": ["A1", "B7", "DR4"], "locus": ["A", "B", "DR"]})
 
     mock_connect, mock_conn = setup_mock_db(mock_df)
-    
+
     mock_connect.return_value = mock_conn
     mock_read_sql_query.return_value = mock_df
 
