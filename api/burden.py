@@ -10,6 +10,21 @@ This module answers that by scoring every donor in the reference population by
 antibody burden and placing the offered donor on that distribution. Everything is
 read off the cohort as it stands; nothing is predicted.
 
+Two denominators, and the difference matters:
+
+* The **eligible cohort** -- every donor the patient could be offered. Compatible
+  donors score zero burden and sit at the bottom of it. This is the honest answer
+  to "how does this offer compare with what this patient could get", because a
+  compatible donor is unambiguously a better outcome than an incompatible one.
+* The **incompatible reference** -- donors carrying at least one DSA. Ranking
+  within this set answers the narrower question "among the offers that are
+  incompatible, where does this one sit".
+
+The incompatible reference alone is misleading below high sensitisation: for a
+patient with one DSA it discards ~73% of the cohort, and every donor discarded
+was *better* than the offer being assessed. Both are reported; the cohort-wide
+one is primary.
+
 No metric is asserted to be correct. There is no settled measure of
 desensitisation difficulty, so all four are exposed and the user decides. Where
 they disagree, that disagreement is itself the signal -- low cumulative with high
@@ -165,6 +180,74 @@ class BasisOfferSummary(BaseModel):
     specs_excluded_by_cohort: List[str]
 
 
+class CohortPlacement(BaseModel):
+    """where the offer sits among every donor the patient could be offered
+
+    Compatible donors carry zero antibody load, so they occupy the bottom of the
+    scale rather than being excluded from it. `n_compatible_lower` is called out
+    separately from `n_lower` because "better because it needs no desensitisation
+    at all" is a different statement from "better because it needs less".
+    """
+
+    basis: MFIBasis
+    metric: Metric
+    value: float
+    cohort_size: int
+    n_compatible: int
+    n_incompatible: int
+    n_lower: int
+    n_equal: int
+    n_higher: int
+    compatible_share: float
+    percentile: Optional[float] = None
+    empirical_percentile_range: Optional[List[float]] = None
+
+
+def cohort_placement(
+    cohort: Cohort,
+    profile: AntibodyProfile,
+    donor: Series,
+    basis: MFIBasis = MFIBasis.CURRENT,
+    metric: Metric = Metric.CUMULATIVE,
+) -> Optional[CohortPlacement]:
+    """place the offer against the whole eligible cohort, not the incompatible half
+
+    Answers the question the tool exists for -- "is this a good donor for this
+    patient" -- which cannot be answered from the incompatible subset alone,
+    because that subset excludes every straightforwardly better option.
+    """
+    mfi, present, _, _ = resolve_profile_mfi(cohort, profile, basis)
+    if not present:
+        return None
+
+    scored = score(cohort.donors, mfi)[metric.value]
+    donor_value = float(score(donor.to_frame().T, mfi)[metric.value].iloc[0])
+
+    n = len(scored)
+    if not n:
+        return None
+
+    n_lower = int((scored < donor_value).sum())
+    n_equal = int((scored == donor_value).sum())
+    n_compatible = int((scored == 0).sum())
+
+    percentile = 100.0 * n_lower / n
+    return CohortPlacement(
+        basis=basis,
+        metric=metric,
+        value=donor_value,
+        cohort_size=n,
+        n_compatible=n_compatible,
+        n_incompatible=n - n_compatible,
+        n_lower=n_lower,
+        n_equal=n_equal,
+        n_higher=n - n_lower - n_equal,
+        compatible_share=100.0 * n_compatible / n,
+        percentile=percentile,
+        empirical_percentile_range=[percentile, 100.0 * (n_lower + n_equal) / n],
+    )
+
+
 class OfferPlacement(BaseModel):
     """the full placement of an offered donor across metrics and bases.
 
@@ -182,6 +265,8 @@ class OfferPlacement(BaseModel):
     basis_summaries: Dict[str, BasisOfferSummary]
     bases_available: List[MFIBasis]
     peak_unavailable_reason: Optional[str] = None
+    # primary view: the offer against every donor the patient could be offered
+    cohort_placements: Dict[str, CohortPlacement] = {}
 
 
 def wilson_interval(k: int, n: int, z: float = 1.96) -> List[float]:
@@ -294,8 +379,22 @@ def reference_population(cohort: Cohort, specs: List[str]) -> DataFrame:
     Note the inversion from a cRF calculation: for a cRF 99% patient this is ~99%
     of the eligible cohort, not 1%. Sparsity is not the binding constraint it
     would be for compatible-donor work.
+
+    That reasoning holds only at high sensitisation. For a patient with a single
+    DSA this is ~27% of the cohort and the *excluded* 73% are the compatible
+    donors -- the better outcomes. Use cohort_placement() for the primary view;
+    this set answers the narrower incompatible-vs-incompatible question.
     """
     return split_by_dsa(cohort.donors, specs)[1]
+
+
+def compatible_population(cohort: Cohort, specs: List[str]) -> DataFrame:
+    """donors in the cohort with no DSA -- the offers that need no desensitisation
+
+    The other half of the same split, so compatible and incompatible cannot
+    disagree about what a DSA is.
+    """
+    return split_by_dsa(cohort.donors, specs)[0]
 
 
 def build_distribution(
@@ -446,6 +545,12 @@ def assess_offer(
                 value = float(scored[metric.value].iloc[0])
                 placements[f"{basis.value}:{metric.value}"] = place(distribution, value, metric)
 
+    cohort_placements: Dict[str, CohortPlacement] = {}
+    for basis in bases:
+        placed = cohort_placement(cohort, profile, donor, basis=basis)
+        if placed is not None:
+            cohort_placements[basis.value] = placed
+
     current = basis_summaries[MFIBasis.CURRENT.value]
 
     return OfferPlacement(
@@ -458,4 +563,5 @@ def assess_offer(
         basis_summaries=basis_summaries,
         bases_available=bases,
         peak_unavailable_reason=peak_reason,
+        cohort_placements=cohort_placements,
     )

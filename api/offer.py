@@ -544,6 +544,9 @@ def placement(request: Request, body: PlacementRequest, data=Depends(load_data))
         "offer_status": result.offer_status,
         "basis_summaries": result.basis_summaries,
         "placements": result.placements,
+        # primary view: the offer against every donor the patient could be
+        # offered, compatible ones included at zero load
+        "cohort_placements": result.cohort_placements,
         "bases_available": [b.value for b in result.bases_available],
         "peak_unavailable_reason": result.peak_unavailable_reason,
         "recip_hla_used": recip_hla_used,

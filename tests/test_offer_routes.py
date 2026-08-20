@@ -426,9 +426,16 @@ def test_offer_page_renders():
 
 
 def test_offer_page_has_provenance_strip():
-    """§7.2 -- provenance is visible before any number is read"""
+    """§7.2 -- provenance is visible before any number is read
+
+    The full record now sits in a disclosure panel, but what the offer is being
+    compared against stays on an always-visible line: two assessments run under
+    different toggles are not comparable, and that must not need a click.
+    """
     html = client.get("/offer/").text
-    for element in ("prov-set", "prov-dp", "prov-cohort", "prov-abo", "prov-threshold", "prov-data"):
+    assert 'id="input-summary-facts"' in html
+    assert 'id="provenance"' in html
+    for element in ("prov-grid", "prov-notes", "prov-flag-count", "detail-provenance"):
         assert element in html
 
 

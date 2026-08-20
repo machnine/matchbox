@@ -16,6 +16,8 @@ from api.burden import (
     SpecMFI,
     assess_offer,
     build_distribution,
+    cohort_placement,
+    compatible_population,
     identical_dsa_set_count,
     place,
     reference_population,
@@ -404,3 +406,83 @@ def test_metrics_can_disagree_on_ordering():
     # donor 6: cumulative 2000 lowest, mean 2000 lowest
     low = place(dist, 2000, Metric.CUMULATIVE)
     assert low.n_lower == 0
+
+
+# --------------------------------------------------------------------------
+# cohort-wide placement
+# --------------------------------------------------------------------------
+# The incompatible-only reference answers "among incompatible offers, where does
+# this sit". It cannot answer "is this a good donor for this patient", because
+# every donor it excludes was excluded for being compatible -- i.e. better.
+#
+# Cumulative scores over DONORS: [4000, 6000, 10000, 16000, 0, 2000]
+# Donor 5 scores 0: compatible.
+
+
+def test_compatible_population_is_the_other_half_of_the_dsa_split():
+    compatible = compatible_population(cohort_of(), SPECS)
+    assert compatible.id.tolist() == [5]
+    incompatible = reference_population(cohort_of(), SPECS)
+    assert len(compatible) + len(incompatible) == len(DONORS)
+
+
+def test_cohort_placement_counts_compatible_donors_as_better():
+    """A donor carrying B7 alone scores 2000; only donor 5 (compatible) is lower."""
+    donor = Series({"id": -1, "bg": "A", "A1": 0, "B7": 1, "DR4": 0, "B8": 0})
+    placed = cohort_placement(cohort_of(), PROFILE, donor)
+    assert placed.cohort_size == 6
+    assert placed.n_compatible == 1  # donor 5
+    assert placed.n_incompatible == 5
+    assert placed.n_lower == 1  # donor 5 (0) is the only score below 2000
+    assert placed.n_equal == 1  # donor 6 also scores 2000
+    assert placed.n_higher == 4  # 4000, 6000, 10000, 16000
+    assert placed.n_lower + placed.n_equal + placed.n_higher == 6
+
+
+def test_cohort_placement_puts_a_heavy_offer_near_the_top():
+    """Carrying all three specificities scores 16000 -- the worst in the frame."""
+    donor = Series({"id": -1, "bg": "A", "A1": 1, "B7": 1, "DR4": 1, "B8": 0})
+    placed = cohort_placement(cohort_of(), PROFILE, donor)
+    assert placed.n_higher == 0
+    assert placed.n_lower == 5
+    assert placed.percentile == pytest.approx(100 * 5 / 6)
+
+
+def test_cohort_placement_reports_the_compatible_share():
+    donor = Series({"id": -1, "bg": "A", "A1": 1, "B7": 0, "DR4": 0, "B8": 0})
+    placed = cohort_placement(cohort_of(), PROFILE, donor)
+    assert placed.compatible_share == pytest.approx(100 / 6)
+
+
+def test_single_dsa_profile_still_separates_compatible_from_incompatible():
+    """The case that motivated this: with one specificity the incompatible set
+    has a single distinct value, so ranking inside it is vacuous -- but the
+    compatible/incompatible split is still informative."""
+    profile = AntibodyProfile(specs=[SpecMFI(spec="B7", current=2000, peak=2000)])
+    cohort = cohort_of(specs=["B7"])
+    donor = Series({"id": -1, "bg": "A", "A1": 0, "B7": 1, "DR4": 0, "B8": 0})
+    placed = cohort_placement(cohort, profile, donor)
+
+    # donors 2, 4, 6 carry B7; the other three do not
+    assert placed.n_incompatible == 3
+    assert placed.n_compatible == 3
+    assert placed.n_lower == 3  # every compatible donor is a better offer
+    assert placed.n_equal == 3  # every incompatible donor is identical
+    assert placed.n_higher == 0
+
+    # and the incompatible-only view is indeed vacuous, which is the point
+    distribution = build_distribution(cohort, profile, MFIBasis.CURRENT)
+    assert len(set(distribution.values[Metric.CUMULATIVE])) == 1
+
+
+def test_cohort_placement_is_none_without_active_specificities():
+    profile = AntibodyProfile(specs=[SpecMFI(spec="A1", current=100)], threshold=2000)
+    donor = Series({"id": -1, "bg": "A", "A1": 1, "B7": 0, "DR4": 0, "B8": 0})
+    assert cohort_placement(cohort_of(), profile, donor) is None
+
+
+def test_assess_offer_carries_cohort_placements_per_basis():
+    donor = Series({"id": -1, "bg": "A", "A1": 1, "B7": 0, "DR4": 0, "B8": 0})
+    result = assess_offer(cohort_of(), PROFILE, donor)
+    assert set(result.cohort_placements) == {"current", "peak"}
+    assert result.cohort_placements["current"].cohort_size == 6

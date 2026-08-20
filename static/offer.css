@@ -2,44 +2,262 @@
    Layered on style.css -- only what the assessment view needs beyond it. */
 
 /* ------------------------------------------------------------------ */
-/* Provenance strip                                                    */
+/* Design tokens                                                       */
 /* ------------------------------------------------------------------ */
-/* Fixed above the results and read before any number: which set, which
-   DP mode, which ABO rule. Two assessments made under different toggles
-   are not comparable, and this is what says so. */
-.provenance-strip {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-left: 3px solid #6c757d;
-  border-radius: 0.375rem;
-  padding: 0.6rem 0.85rem;
-  font-size: 0.85rem;
+/* Five type steps and one spacing unit. Before these existed the page had
+   29 distinct size/weight combinations -- 13.1, 13.3 and 13.6px all appeared
+   within one card -- and gaps that were multiples of nothing. Differences too
+   small to read as hierarchy read as sloppiness instead.
+
+   Every rule below uses these. Adding a sixth step is a design decision, not
+   a convenience: pick the nearest existing one. */
+:root {
+  --t-micro: 0.6875rem;  /* 11px -- uppercase tags, axis ends */
+  --t-small: 0.8125rem;  /* 13px -- labels, secondary copy   */
+  --t-base:  0.9375rem;  /* 15px -- body, table cells        */
+  --t-lead:  1.3125rem;  /* 21px -- verdict headline         */
+  --t-hero:  1.875rem;   /* 30px -- the numbers that matter  */
+
+  --w-normal: 400;
+  --w-medium: 600;
+  --w-bold:   700;
+
+  --s-1: 0.5rem;   /*  8px */
+  --s-2: 1rem;     /* 16px */
+  --s-3: 1.5rem;   /* 24px */
+  --s-4: 2rem;     /* 32px */
+
+  --ink:      #1f2933;
+  --ink-mute: #6b7280;
+  --line:     #e5e7eb;
 }
 
-.prov-item {
+/* One horizontal rhythm for every card, so text inside them shares a left
+   edge instead of the twelve the page had. */
+.card-body,
+.detail-body,
+.detail-panel > summary,
+.card-header {
+  padding-left: var(--s-2);
+  padding-right: var(--s-2);
+}
+
+/* ------------------------------------------------------------------ */
+/* Test profile banner                                                 */
+/* ------------------------------------------------------------------ */
+/* Loud on purpose. Fixture data rendered in the real layout is easy to
+   screenshot and mistake for a real assessment; this must survive that. */
+.test-profile-banner {
+  background: repeating-linear-gradient(
+    45deg, #fff3cd, #fff3cd 12px, #ffe69c 12px, #ffe69c 24px
+  );
+  border: 2px dashed #997404;
+  border-radius: 0.375rem;
+  color: #664d03;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.85rem;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Context bar                                                         */
+/* ------------------------------------------------------------------ */
+/* One line, always visible, above the answer. Two assessments run under
+   different toggles are not comparable -- this is the line that says so,
+   which is why it is not inside a collapsed panel. */
+.context-bar {
+  align-items: center;
+  flex-wrap: nowrap;
+  background: #f8f9fa;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  justify-content: space-between;
+  padding: var(--s-1) var(--s-2);
+}
+
+/* A chip is one value plus its tag; it must never break between them, or the
+   row turns into a two-line stack of orphaned words. */
+.context-chip {
+  align-items: baseline;
+  column-gap: 0.3rem;
+  display: inline-flex;
   white-space: nowrap;
 }
 
-.prov-label {
-  color: #6c757d;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-right: 0.35rem;
+.context-chip b,
+.context-chip-value {
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-bold);
 }
 
-.prov-item span:last-child {
+.context-chip-label {
+  color: var(--ink-mute);
+  font-size: var(--t-micro);
+}
+
+.context-link {
+  background: none;
+  border: 0;
+  color: #0d6efd;
+  font-size: var(--t-small);
+  padding: 0;
+  white-space: nowrap;
+}
+
+.context-link:hover {
+  color: #0a58ca;
+}
+
+/* ------------------------------------------------------------------ */
+/* Disclosure panels                                                   */
+/* ------------------------------------------------------------------ */
+/* Everything that is not the answer lives here, closed until asked for.
+   Nothing is removed: the disagreement between measures and the cohort
+   caveats are findings, they just are not the first thing read. */
+.detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.detail-panel {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+}
+
+.detail-panel > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0.5rem 0.85rem;
+}
+
+.detail-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.detail-panel > summary::before {
+  color: #6c757d;
+  content: "\25B8";
+  font-size: 0.7rem;
+  transition: transform 0.15s ease;
+}
+
+.detail-panel[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.detail-panel > summary:hover {
+  background: #f8f9fa;
+}
+
+.detail-panel[open] > summary {
+  border-bottom: 1px solid #e9ecef;
+}
+
+.detail-title {
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
+.detail-hint {
+  color: #6c757d;
+  font-size: 0.75rem;
+}
+
+.detail-flag {
+  background: #fff3cd;
+  border-radius: 999px;
+  color: #664d03;
+  font-size: var(--t-micro);
+  font-weight: var(--w-medium);
+  margin-left: auto;
+  padding: 0.1rem 0.45rem;
+  white-space: nowrap;
+}
+
+.detail-body {
+  padding-bottom: var(--s-2);
+  padding-top: var(--s-2);
+}
+
+.detail-note {
+  color: var(--ink-mute);
+  font-size: var(--t-small);
+}
+
+/* ------------------------------------------------------------------ */
+/* Glossary                                                            */
+/* ------------------------------------------------------------------ */
+.glossary dt {
+  color: var(--ink);
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+  margin-top: var(--s-2);
+}
+
+.glossary dt:first-child {
+  margin-top: 0;
+}
+
+.glossary dd {
+  color: #495057;
+  font-size: var(--t-small);
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+
+.what-specs {
+  border-top: 1px solid #e9ecef;
+  padding-top: 0.6rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Provenance grid                                                     */
+/* ------------------------------------------------------------------ */
+.prov-grid {
+  display: grid;
+  gap: 0.4rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+}
+
+.prov-cell {
+  border-top: 1px solid #f1f3f5;
+  display: flex;
+  flex-direction: column;
+  padding-top: 0.3rem;
+}
+
+.prov-label {
+  color: var(--ink-mute);
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.prov-value {
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+}
+
 .prov-note {
-  font-size: 0.8rem;
-  padding: 0.35rem 0.5rem;
-  border-radius: 0.25rem;
-  margin-top: 0.3rem;
   background: #eef6ff;
   border-left: 3px solid #0d6efd;
+  border-radius: 0.25rem;
   color: #334155;
+  font-size: var(--t-small);
+  margin-top: var(--s-1);
+  padding: var(--s-1);
 }
 
 .prov-note.warning {
@@ -65,51 +283,210 @@
   padding: 0.5rem 0.65rem;
 }
 
-.assessment-summary {
-  border-left: 4px solid #0d6efd;
+.verdict-card {
+  height: auto;
+}
+
+.verdict-card .card-body {
+  padding-bottom: 1rem;
+}
+
+/* The verdict is the only prose left on the card: a phrase, not a sentence.
+   Everything that was a paragraph is now a number, a bar segment or a brace. */
+.verdict-headline {
+  font-size: var(--t-lead);
+  font-weight: var(--w-medium);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  margin-bottom: var(--s-3);
+}
+
+.verdict-head {
+  align-items: center;
+  display: flex;
+  gap: var(--s-1);
+  justify-content: space-between;
+  margin-bottom: var(--s-1);
+}
+
+.verdict-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.info-btn {
+  background: none;
+  border: 0;
+  color: #6c757d;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.15rem 0.25rem;
+}
+
+.info-btn:hover {
+  color: #0d6efd;
+}
+
+.caveat-chip {
+  align-items: center;
+  background: #fff3cd;
+  border: 1px solid #ffe69c;
+  border-radius: 999px;
+  color: #664d03;
+  display: flex;
+  font-size: 0.72rem;
+  font-weight: 600;
+  gap: 0.25rem;
+  padding: 0.1rem 0.5rem;
+}
+
+.caveat-chip:hover {
+  background: #ffe69c;
+}
+
+/* Two figures where a 40-word sentence used to be. */
+.verdict-facts {
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  justify-content: center;
+  margin-top: var(--s-3);
+  padding-top: var(--s-2);
+}
+
+.verdict-fact {
+  align-items: baseline;
+  column-gap: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.verdict-fact-value {
+  font-size: var(--t-base);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-bold);
+}
+
+.verdict-fact-label {
+  color: var(--ink-mute);
+  font-size: var(--t-small);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bar braces                                                          */
+/* ------------------------------------------------------------------ */
+/* Names the two populations the bar is made of. The brace's width IS the
+   proportion, so "73% carry no antibody" is drawn, not asserted -- the
+   number and the picture cannot drift apart. */
+.bar-braces {
+  display: flex;
+  margin-bottom: 2px;
+}
+
+.bar-brace {
+  border-bottom: 1px solid #adb5bd;
+  min-width: 0;
+  padding-bottom: 0.15rem;
+  position: relative;
+  text-align: center;
+}
+
+.bar-brace + .bar-brace {
+  border-left: 1px solid #adb5bd;
+}
+
+.bar-brace-label {
+  color: var(--ink-mute);
+  display: block;
+  font-size: var(--t-micro);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brace-compatible .bar-brace-label {
+  color: #27733c;
+}
+
+.bar-brace.is-narrow {
+  overflow: visible;
+}
+
+.bar-brace.is-narrow .bar-brace-label {
+  overflow: visible;
+  position: absolute;
+  right: 0;
+  text-align: right;
+  top: 0;
+}
+
+.bar-brace.is-narrow.brace-incompatible .bar-brace-label {
+  left: 0;
+  right: auto;
+  text-align: left;
 }
 
 .headline-value {
-  font-size: 1.75rem;
-  font-weight: 600;
+  font-size: var(--t-lead);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-bold);
   line-height: 1.1;
 }
 
 .headline-label {
-  font-size: 0.72rem;
-  color: #6c757d;
+  color: var(--ink-mute);
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
-.summary-value {
-  font-size: 1.65rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.summary-value-label,
 .rank-count-label {
-  color: #6c757d;
-  font-size: 0.68rem;
-  letter-spacing: 0.03em;
+  color: var(--ink-mute);
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .rank-axis-labels {
-  color: #6c757d;
+  color: var(--ink-mute);
   display: flex;
-  font-size: 0.72rem;
+  font-size: var(--t-micro);
   justify-content: space-between;
-  line-height: 1.15;
-  margin-bottom: 0.35rem;
+  line-height: 1.3;
+  margin-top: var(--s-1);
 }
 
 .rank-axis-labels span:last-child {
   text-align: right;
 }
 
+/* Names the marker, so the one coloured mark on the page is never unexplained.
+   It is a key, not a pointer: it stays put while the marker moves. */
+.rank-axis-legend {
+  align-items: center;
+  align-self: flex-start;
+  color: #495057;
+  display: flex;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.legend-swatch {
+  background: #0d6efd;
+  border-radius: 1px;
+  display: inline-block;
+  height: 0.7rem;
+  width: 4px;
+}
+
+.legend-swatch.offer-marker-low { background: #1a7f3c; }
+.legend-swatch.offer-marker-mid { background: #0d6efd; }
+.legend-swatch.offer-marker-high { background: #c62b39; }
+
+/* The bar shows the donor population, not a verdict. Overflow stays visible so
+   the offer marker can sit proud of the track at either extreme. */
 .rank-stack {
   background: #e9ecef;
   border: 1px solid #ced4da;
@@ -117,25 +494,109 @@
   display: flex;
   height: 18px;
   min-width: 80px;
-  overflow: hidden;
+  position: relative;
 }
 
 .rank-stack-small {
   height: 8px;
 }
 
+.rank-stack-small .offer-marker {
+  bottom: -2px;
+  top: -2px;
+  width: 3px;
+}
+
 .rank-counts {
   display: grid;
+  gap: 0.25rem;
+  margin-top: 0.8rem;
   text-align: center;
+}
+
+/* The share, subordinate to the count above it: the count is the headline and
+   the percentage is the gloss, so it never competes for the same weight. */
+.rank-count-pct {
+  color: var(--ink-mute);
+  font-size: var(--t-micro);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  margin-top: -0.1rem;
+  white-space: nowrap;
+}
+
+/* The label must never wrap: a narrow proportional column would otherwise turn
+   it into a tall tower of single characters and stretch the whole card. */
+.rank-count-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-counts {
+  margin-top: var(--s-2);
 }
 
 .rank-count-group {
   min-width: 0;
+  overflow: hidden;
   padding-inline: 0.2rem;
 }
 
+/* visibility, not display: a display:none child is removed from the grid and
+   every following label shifts into the wrong column. */
 .rank-count-group.is-empty {
   visibility: hidden;
+}
+
+/* ------------------------------------------------------------------ */
+/* Leader lines.
+
+   At lopsided splits (4,372 / 143 / 105) the thin segments are ~3% of the
+   track, far too narrow to sit a label under. Alignment cannot carry the
+   link, so the label drifts toward its segment and a drawn line closes the
+   gap -- the connection becomes explicit instead of implied.
+
+   Only thin segments get this treatment; a balanced split keeps the plain
+   proportional grid above and draws nothing. */
+#ranking-visual {
+  position: relative;
+}
+
+.rank-leaders {
+  height: var(--leader-h, 0px);
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+}
+
+.rank-leader {
+  fill: none;
+  stroke: #adb5bd;
+  stroke-width: 1;
+}
+
+/* The drifted layout abandons the grid: labels are placed by measured x, so
+   they can sit under their own segment rather than in a column that no longer
+   corresponds to anything. */
+.rank-counts.is-drifted {
+  display: block;
+  height: var(--drift-h, auto);
+  position: relative;
+}
+
+.rank-counts.is-drifted .rank-count-group {
+  overflow: visible;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding-inline: 0;
+}
+
+.rank-counts.is-drifted .rank-count-group.is-empty {
+  display: none;
 }
 
 .rank-segment {
@@ -144,58 +605,103 @@
 }
 
 .rank-segment-lower {
-  background: #dc6b75;
+  background: #c3cbd4;
+  border-radius: 0.3rem 0 0 0.3rem;
 }
 
+/* The tie band is the only segment with a meaning of its own -- it is where the
+   offer sits -- so it is the one that is tinted rather than grey. */
 .rank-segment-equal {
-  background: #5b8fd9;
+  background: #8fa8c8;
 }
 
 .rank-segment-higher {
-  background: #65a979;
+  background: #dee2e6;
+  border-radius: 0 0.3rem 0.3rem 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Offer marker                                                        */
+/* ------------------------------------------------------------------ */
+/* The only coloured element in the visual, and the only one the reader is
+   asked to judge. Its tone uses the same thresholds as the status badge so
+   the two cannot contradict each other. */
+.offer-marker {
+  border-radius: 2px;
+  bottom: -3px;
+  box-shadow: 0 0 0 1.5px #fff;
+  position: absolute;
+  top: -3px;
+  transform: translateX(-50%);
+  width: 5px;
+}
+
+.offer-marker-low {
+  background: #1a7f3c;
+}
+
+.offer-marker-mid {
+  background: #0d6efd;
+}
+
+.offer-marker-high {
+  background: #c62b39;
 }
 
 .rank-count {
-  font-size: 1.15rem;
+  font-size: var(--t-hero);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: var(--w-bold);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
-.rank-count-lower { color: #a61e2c; }
+/* Counts describe other donors, not the offer, so they carry no verdict
+   colour -- only the marker does. */
+.rank-count-lower { color: #495057; }
 .rank-count-equal { color: #245ea8; }
-.rank-count-higher { color: #27733c; }
+.rank-count-higher { color: #495057; }
 
 /* ------------------------------------------------------------------ */
 /* Metric comparison                                                   */
 /* ------------------------------------------------------------------ */
 .metric-agreement {
-  border-left: 3px solid;
-  border-radius: 0.25rem;
-  font-size: 0.82rem;
-  padding: 0.5rem 0.65rem;
+  border-radius: 999px;
+  display: inline-block;
+  font-size: var(--t-micro);
+  font-weight: var(--w-medium);
+  padding: 0.2rem 0.65rem;
 }
 
 .metric-agreement-neutral {
   background: #eef6ff;
-  border-left-color: #0d6efd;
+  color: #0a58ca;
 }
 
 .metric-agreement-warning {
   background: #fff3cd;
-  border-left-color: #ffc107;
   color: #664d03;
+}
+
+.metric-comparison {
+  border: 1px solid #e9ecef;
+  border-radius: 0.25rem;
+  overflow: hidden;
 }
 
 .metric-row {
   align-items: stretch;
   border-top: 1px solid #e9ecef;
+  /* A uniform gutter on every row. It once held a 3px accent on the first row
+     only, which inset that row's columns by three pixels; the accent is gone
+     but the reserved space stays so the grid lines up. */
+  border-left: 3px solid transparent;
   display: grid;
-  grid-template-columns: minmax(115px, 0.8fr) minmax(190px, 1.1fr) minmax(190px, 1.1fr);
+  grid-template-columns: minmax(130px, 0.9fr) minmax(180px, 1.1fr) minmax(180px, 1.1fr);
 }
 
-.metric-row-primary {
-  background: #f7fbff;
-  border-left: 3px solid #0d6efd;
+.metric-row:first-child {
+  border-top: 0;
 }
 
 .metric-identity,
@@ -211,8 +717,8 @@
 .metric-identity span,
 .metric-range,
 .metric-comparison-copy {
-  color: #6c757d;
-  font-size: 0.72rem;
+  color: var(--ink-mute);
+  font-size: var(--t-micro);
 }
 
 .metric-basis-cell {
@@ -220,16 +726,43 @@
 }
 
 .metric-basis-label {
-  color: #6c757d;
-  font-size: 0.68rem;
-  letter-spacing: 0.04em;
+  color: var(--ink-mute);
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
+/* Names the two basis columns once, above the grid, instead of repeating PEAK
+   and CURRENT in every row. Only meaningful while the columns are side by
+   side: the stacked layouts below re-show the per-cell labels. */
+.metric-head {
+  background: #f8f9fa;
+}
+
+.metric-head-label {
+  border-left: 1px solid #e9ecef;
+  color: var(--ink-mute);
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
+  /* Inline padding matches .metric-basis-cell exactly: the heading has to sit
+     directly over the number it names. */
+  padding: 0.4rem 0.75rem;
+  text-transform: uppercase;
+}
+
+.metric-comparison .metric-head + .metric-row {
+  border-top: 1px solid #e9ecef;
+}
+
+/* With the columns named above, the in-cell repeat is redundant. */
+.metric-comparison .metric-head ~ .metric-row .metric-basis-label {
+  display: none;
+}
+
 .metric-value {
-  font-size: 1.05rem;
+  font-size: var(--t-base);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: var(--w-bold);
 }
 
 /* ------------------------------------------------------------------ */
@@ -305,7 +838,96 @@
   color: #6c757d;
 }
 
+.joint-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  justify-content: center;
+}
+
+.joint-figure {
+  align-items: baseline;
+  column-gap: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.joint-figure-value {
+  font-size: var(--t-base);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-bold);
+}
+
+.joint-figure-good .joint-figure-value { color: #27733c; }
+.joint-figure-bad .joint-figure-value { color: #a61e2c; }
+.joint-figure-offer .joint-figure-value { color: #0d6efd; }
+
+.joint-figure-label {
+  color: var(--ink-mute);
+  font-size: var(--t-small);
+}
+
+/* ------------------------------------------------------------------ */
+/* Offcanvas drawers                                                   */
+/* ------------------------------------------------------------------ */
+/* Where every explanation now lives. Out of the results column entirely,
+   so the page shows and the drawer tells. */
+.offcanvas-body {
+  font-size: var(--t-small);
+  line-height: 1.6;
+}
+
+.offcanvas-body p {
+  color: #495057;
+}
+
+.offcanvas-body code {
+  background: #f1f3f5;
+  border-radius: 0.2rem;
+  color: #495057;
+  font-size: 0.78rem;
+  padding: 0.05rem 0.3rem;
+}
+
+.drawer-case {
+  background: #f8f9fa;
+  border-radius: 0.375rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
+}
+
+.drawer-case-heading {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+/* bg-danger-subtle / text-danger-emphasis are Bootstrap 5.3; this project
+   bundles 5.2.3, where they resolve to nothing and leave white-on-transparent. */
+.spec-badge {
+  background: #f8d7da;
+  border-radius: 0.25rem;
+  color: #58151c;
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-right: 0.25rem;
+  padding: 0.2rem 0.45rem;
+}
+
 @media (max-width: 767.98px) {
+  /* The columns stack from here down, so a header above them would no longer
+     sit over anything -- each cell names itself again instead. Both classes are
+     named so this still beats the `.metric-row { display: block }` rule in the
+     420px block below, which would otherwise bring the header back. */
+  .metric-row.metric-head {
+    display: none;
+  }
+
+  .metric-comparison .metric-head ~ .metric-row .metric-basis-label {
+    display: block;
+  }
+
   .metric-row {
     grid-template-columns: 1fr 1fr;
   }
@@ -330,4 +952,468 @@
     border-left: 0;
     border-top: 1px dashed #e9ecef;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Dashboard shell                                                     */
+/* ------------------------------------------------------------------ */
+/* The page is an instrument panel, not a document. Every label is a tag
+   rather than a sentence; the type scale is deliberately narrow so the
+   numbers are the only things that read large. */
+
+.field-label {
+  color: var(--ink-mute);
+  font-size: var(--t-micro);
+  font-weight: var(--w-medium);
+  letter-spacing: 0.06em;
+  margin-bottom: var(--s-1);
+  text-transform: uppercase;
+}
+
+.field-label .bi {
+  font-size: 0.75rem;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.field-optional {
+  color: #adb5bd;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.card-header {
+  font-size: var(--t-micro);
+  font-weight: var(--w-medium);
+  letter-spacing: 0.06em;
+  padding-bottom: var(--s-1);
+  padding-top: var(--s-1);
+  text-transform: uppercase;
+}
+
+.card-body {
+  padding-bottom: var(--s-2);
+  padding-top: var(--s-2);
+}
+
+.page-footer {
+  padding: 1.25rem 0 2rem;
+  text-align: center;
+}
+
+.detail-title {
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+}
+
+#placeholder {
+  font-size: var(--t-small);
+}
+
+/* ------------------------------------------------------------------ */
+/* Scale enforcement                                                   */
+/* ------------------------------------------------------------------ */
+/* Bootstrap's defaults and compounding <small> reintroduced sizes the
+   token scale does not contain: tables at 16px, and <small> inside an
+   already-small parent landing at 9.6 and 8.3px. Percentage-based sizing
+   compounds; absolute tokens do not. */
+main table,
+main th,
+main td {
+  font-size: var(--t-small);
+}
+
+main small,
+.rank-axis-labels small {
+  font-size: var(--t-micro);
+}
+
+main .form-text,
+main .small,
+main .btn {
+  font-size: var(--t-small);
+}
+
+main .badge {
+  font-size: var(--t-micro);
+  font-weight: var(--w-medium);
+}
+
+.test-profile-banner {
+  font-size: var(--t-small);
+}
+
+.drawer-case-heading {
+  font-size: var(--t-small);
+}
+
+.offer-cell-marker {
+  font-size: var(--t-micro);
+}
+
+.joint-table th small {
+  font-size: var(--t-micro);
+  font-weight: var(--w-normal);
+}
+
+/* ------------------------------------------------------------------ */
+/* Shell geometry                                                      */
+/* ------------------------------------------------------------------ */
+/* The page was col-xxl-8, which on a 1920px screen spent 666px on empty
+   margin and left the primary bar at 35% of the viewport -- narrower than
+   the margin beside it. That is a reading-column width, right for a
+   document and wrong for an instrument panel. Full-bleed to a cap: wide
+   screens get the space, ultrawide ones do not stretch the tables to
+   unreadable line lengths. */
+.offer-shell {
+  max-width: 1800px;
+  width: 100%;
+}
+
+/* ------------------------------------------------------------------ */
+/* Collapsed input summary                                             */
+/* ------------------------------------------------------------------ */
+/* The inputs are touched once per assessment but held 40% of the width
+   permanently. Once a result exists they fold into this strip, and the
+   results take the whole canvas. */
+.input-summary {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  display: flex;
+  gap: var(--s-2);
+  justify-content: space-between;
+  margin-bottom: var(--s-2);
+  padding: var(--s-1) var(--s-2);
+  text-align: left;
+  width: 100%;
+}
+
+.input-summary:hover {
+  border-color: #adb5bd;
+}
+
+.input-summary-facts {
+  color: var(--ink);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--t-small);
+  gap: var(--s-2);
+}
+
+.input-summary-facts b {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-bold);
+}
+
+.input-summary-facts .sep {
+  color: #cbd2d9;
+}
+
+.input-summary-edit {
+  color: #0d6efd;
+  font-size: var(--t-small);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Results grid                                                        */
+/* ------------------------------------------------------------------ */
+/* With the rail collapsed there is room to sit the detail panels beside
+   each other instead of stacking three near-empty strips down the page. */
+.detail-stack {
+  display: grid;
+  gap: var(--s-1);
+  grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+  align-items: start;
+}
+
+/* The measures panel carries the most data, so it spans the full row when
+   there is space for two columns beside it. */
+#detail-measures {
+  grid-column: 1 / -1;
+}
+
+.metric-row {
+  grid-template-columns: minmax(150px, 0.7fr) minmax(200px, 1fr) minmax(200px, 1fr);
+}
+
+/* The verdict card gets more presence at full width: the bar is the primary
+   graphic and was 669px on a 1920px screen. */
+.rank-stack {
+  height: 26px;
+}
+
+.rank-count {
+  font-size: 2.25rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Wide-layout density                                                 */
+/* ------------------------------------------------------------------ */
+/* Going full width exposed proportions that were fine in a 700px column
+   and wrong in 1730px: a 74px void between the bar and the counts it
+   labels, and metric rows 114px tall whose identity column held two
+   words in 448px. Width was gained to show more data, not more air. */
+
+.rank-axis-labels {
+  margin-top: var(--s-1);
+}
+
+.rank-counts {
+  margin-top: var(--s-1);
+}
+
+.verdict-facts {
+  margin-top: var(--s-2);
+  padding-top: var(--s-1);
+}
+
+.verdict-headline {
+  margin-bottom: var(--s-2);
+}
+
+/* The identity column only ever holds a two-word name and a three-word
+   gloss; the rest of the row is the data. */
+.metric-row {
+  grid-template-columns: minmax(0, 190px) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.metric-identity,
+.metric-basis-cell {
+  padding-block: var(--s-1);
+}
+
+.metric-value {
+  font-size: var(--t-lead);
+  line-height: 1.15;
+}
+
+/* One line, beside the value rather than stacked under it. */
+.metric-basis-cell {
+  align-content: start;
+  column-gap: var(--s-2);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  row-gap: 2px;
+}
+
+.metric-basis-label {
+  grid-column: 1 / -1;
+}
+
+.metric-basis-cell .rank-stack-small {
+  grid-column: 1 / -1;
+  margin-top: 4px !important;
+}
+
+/* The axis labels are two stacked lines at each end; as a flex row their
+   height pushed the counts 66px clear of the bar they annotate. Absolutely
+   positioned against the bar's own box, they annotate without displacing. */
+#ranking-visual {
+  position: relative;
+}
+
+.rank-axis-labels {
+  margin-top: 2px;
+}
+
+.rank-stack + .rank-axis-labels {
+  margin-top: 2px;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+
+.rank-stack + .rank-axis-labels span {
+  background: var(--bs-card-bg, #fff);
+  padding-inline: 0.15rem;
+}
+
+.rank-counts {
+  margin-top: 1.6rem;
+}
+
+.input-summary-facts .sep {
+  margin-inline: 0.15rem;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Input drawer                                                        */
+/* ------------------------------------------------------------------ */
+/* The inputs used to be a column that collapsed after assessing, which meant
+   two layout states kept in sync by hand across four elements. As a drawer
+   they are simply shown or hidden by Bootstrap, and the results are always
+   full width, which is why the density rules above are unconditional. */
+/* Bootstrap sets .offcanvas-start{width:400px} with equal specificity and wins
+   on source order, so this needs the extra class to take effect. 560px fits the
+   three column-role dropdowns on one line. */
+.offcanvas.offcanvas-input {
+  width: min(560px, 100vw);
+}
+
+.offcanvas-input .offcanvas-body {
+  padding-top: 0;
+}
+
+.offcanvas-input .card {
+  border: 0;
+}
+
+.offcanvas-input .card-header {
+  background: none;
+  border-bottom: 1px solid var(--line);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.offcanvas-input .card-body {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Merged status row                                                   */
+/* ------------------------------------------------------------------ */
+/* Was two bars that between them repeated the cohort size, the MFI cut-off
+   and the recipient blood group. One row now: what was asked on the left,
+   what it was measured against on the right. */
+.context-bar .input-summary {
+  background: none;
+  border: 0;
+  /* shrink to content so the info button stays on the same line */
+  flex: 1 1 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.context-bar .input-summary:hover .input-summary-edit {
+  text-decoration: underline;
+}
+
+.input-summary-facts {
+  align-items: baseline;
+  column-gap: 0.85rem;
+  row-gap: 0.2rem;
+}
+
+.context-divider {
+  color: #adb5bd;
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* The comparison side is context for the numbers below, not an input, so it
+   sits back a step from the settings that produced it. */
+.context-chip-muted b {
+  font-weight: var(--w-medium);
+}
+
+.context-chip-muted,
+.context-chip-muted .context-chip-label {
+  color: var(--ink-mute);
+}
+
+/* Icon-led chips: the glyph replaces the word label, the value stays as text.
+   Sized to the value it sits beside so the row keeps one optical baseline. */
+.context-chip .bi {
+  color: var(--ink-mute);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.context-chip-muted .bi {
+  opacity: 0.75;
+}
+
+.context-chip[title] {
+  cursor: help;
+}
+
+/* Bootstrap 5.2 ships .visually-hidden, but this page is styled standalone --
+   define it so the screen-reader text never renders. */
+.visually-hidden {
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Joint view                                                          */
+/* ------------------------------------------------------------------ */
+/* The card leads with its finding. The 4x4 grid is the evidence behind it,
+   not the thing to read first: it needed the reader to locate the offer's
+   cell and then compare everything up-and-left of it by eye. */
+.joint-headline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin-bottom: var(--s-2);
+}
+
+.joint-stat {
+  align-items: baseline;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.joint-stat-value {
+  font-size: var(--t-lead);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-bold);
+  line-height: 1.1;
+}
+
+.joint-stat-label {
+  color: var(--ink-mute);
+  font-size: var(--t-small);
+}
+
+.joint-stat-good .joint-stat-value { color: #1a7f3c; }
+.joint-stat-bad .joint-stat-value { color: #c62b39; }
+.joint-stat-neutral .joint-stat-value { color: var(--ink-mute); }
+
+.joint-position {
+  color: #495057;
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+
+.joint-breakdown {
+  margin-top: var(--s-2);
+}
+
+.joint-breakdown > summary {
+  color: #0d6efd;
+  cursor: pointer;
+  font-size: var(--t-small);
+  list-style: none;
+}
+
+.joint-breakdown > summary::-webkit-details-marker {
+  display: none;
+}
+
+.joint-breakdown > summary::before {
+  content: "\25B8 ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.joint-breakdown[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+/* This card now carries a finding rather than just a table, so it takes the
+   full row like the measures panel rather than sharing space with Method. */
+#joint-card {
+  grid-column: 1 / -1;
 }
