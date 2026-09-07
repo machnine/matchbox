@@ -25,6 +25,32 @@
   </ul>
 
   <hr />
+  <p class="fw-bold">Allele level HLA-DP4:</p>
+  <p>
+    The donor cohort records HLA-DP at broad antigen level, so <b>DPB0401</b> and <b>DPB0402</b> cannot be scored
+    against a donor column. Selecting one scores it against the expected carriers of that allele among the DP4 donors,
+    following the approach NHSBT takes for these two specificities:
+  </p>
+  <p class="text-center">
+    <i class="text-danger">cRF</i> = (S + <i>f</i> &times; D) / N
+  </p>
+  <p>
+    where <i>N</i> is the blood group identical donors, <i>S</i> those excluded by the patient's other specificities,
+    and <i>D</i> the further DP4 donors only the DP4 entry excludes.
+    {%- set series = (dp4_frequencies or {}).values()|list %}
+    {%- if series %}
+    The carrier fractions <i>f</i> are
+    {% for freq in series %}<b>{{ freq.label }}</b> {{ "%.2f"|format(freq.carrier_fraction) }}{% if not loop.last %}, {% endif %}{% endfor %},
+    from HLA-DPB1 typing of {{ series[0].source_n }} UK deceased solid organ donors.
+    {%- endif %}
+  </p>
+  <p>
+    Selecting <b>DPB4</b>, or both alleles together, resolves the entry to the broad antigen. Only
+    <i class="text-danger">cRF</i> is weighted: <i class="text-primary">Mp</i> and <i class="text-warning">Fm</i> count
+    whole donors, and score an allele entry as broad DP4.
+  </p>
+
+  <hr />
   <p class="fw-bold">Matchability point bands:</p>
   <table class="table table-sm text-center table-bordered table-striped">
     <tr>

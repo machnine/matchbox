@@ -27,7 +27,7 @@ EXCLUDED_ANTIGENS = ["A19_S", "CW13"]
 DEFAULT_DATABASE_PATH = "data/donors.db"
 DEFAULT_DONOR_TABLE = "donors_v3"
 DEFAULT_MATCHABILITY_BAND_VERSION = 4
-DEFAULT_DONOR_DATABASE_SHA256 = "b83b8255a23aaf48bce46b1cc2d14c7199bd1997fefff0b35f73e009d9d92076"
+DEFAULT_DONOR_DATABASE_SHA256 = "2e18a4e50e77383f50078a69428d28ee86a23e4c7202186152cd2386c2776194"
 UPSTREAM_SOURCE_FILE = "hla-mm-and-crf_2024.xlsb"
 UPSTREAM_SOURCE_FILE_SIZE_SIGNATURE = 24_099_579
 UPSTREAM_SOURCE_FILE_SHA256 = "66d125adcc94d82236bd6ba719be59b1ff7a11484f9c605c36fb9760dfc69649"
@@ -42,6 +42,26 @@ EXPECTED_AB_BAND_KEYS = {
 
 class DataLoadError(RuntimeError):
     """Raised when calculator data cannot be identified or validated."""
+
+
+class DP4AlleleFrequency(BaseModel):
+    """Carrier fraction for one allele-level HLA-DP4 specificity.
+
+    The donor cohort records HLA-DP at broad antigen level only, so an allele
+    level entry cannot be scored against a donor column. It is scored instead
+    against the expected carriers of that allele among the DP4 positive donors.
+    The fractions are held with the donor data rather than in code so they
+    version with the data release and appear in provenance.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    antigen: str = Field(min_length=1)
+    broad: str = Field(min_length=1)
+    carrier_fraction: float = Field(gt=0, le=1)
+    label: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    source_n: int = Field(gt=0)
 
 
 class DataProvenance(BaseModel):
@@ -225,14 +245,25 @@ class DataLoader:
         data = None
         return donor_data
 
-    def antigens(self) -> Dict[str, List[str]]:
-        """HLA antigens represented"""
+    def antigens(self, dp4_frequencies: Optional[Dict[str, "DP4AlleleFrequency"]] = None) -> Dict[str, List[str]]:
+        """HLA antigens represented
+
+        The allele level HLA-DP4 specificities are offered alongside the donor
+        columns even though no column carries them, so they can be selected as
+        unacceptable antigens. Each is placed immediately after the broad
+        antigen it refines.
+        """
         antigen_dict = defaultdict(list)
         cols = self.donors[0].columns
+        alleles_by_broad = defaultdict(list)
+        for antigen, frequency in (dp4_frequencies or {}).items():
+            alleles_by_broad[frequency.broad].append(antigen)
+
         for col in cols:
             if col not in EXCLUDED_ANTIGENS:
                 if locus := self._get_locus(col):
                     antigen_dict[locus].append(col)
+                    antigen_dict[locus].extend(sorted(alleles_by_broad.get(col, [])))
         return antigen_dict
 
     def matchability_bands(self) -> Dict[str, Dict[int, int]]:
@@ -263,6 +294,32 @@ class DataLoader:
         data = self._load_table("antigen_defaults", "where locus in ('B', 'DR')")
         return data.reset_index().set_index("rare")["default"].to_dict()
 
+    def dp4_allele_frequencies(self) -> Dict[str, DP4AlleleFrequency]:
+        """load carrier fractions for the allele level HLA-DP4 specificities
+
+        Absent or malformed rows are a hard failure rather than a silent empty
+        mapping: the allele specificities are offered as calculator input, and a
+        missing fraction would otherwise score one as though it excluded no
+        donors at all.
+        """
+        data = self._load_table("dp4_allele_frequencies")
+        if data.empty:
+            raise DataLoadError("Missing HLA-DP4 allele carrier frequencies")
+
+        try:
+            frequencies = {
+                str(row["antigen"]): DP4AlleleFrequency(**row) for _, row in data.iterrows()
+            }
+        except (TypeError, ValueError, KeyError) as exc:
+            raise DataLoadError(f"Invalid HLA-DP4 allele carrier frequencies: {exc}") from exc
+
+        donor_columns = set(self.donors[0].columns)
+        unknown_broads = {f.broad for f in frequencies.values()} - donor_columns
+        if unknown_broads:
+            raise DataLoadError(f"HLA-DP4 allele frequencies name unknown broad antigens: {sorted(unknown_broads)}")
+
+        return frequencies
+
     def broad_split_mapping(self) -> Dict[str, Dict[str, Any]]:
         """load broad/split antigen mappings"""
         try:
@@ -289,7 +346,8 @@ class DataLoader:
     @property
     def base_data(self):
         """get data"""
-        antigens = self.antigens()
+        dp4_frequencies = self.dp4_allele_frequencies()
+        antigens = self.antigens(dp4_frequencies)
         matchability_bands = self.matchability_bands()
         self._validate_matchability_bands(matchability_bands)
         matchability_antigens = self.matchability_antigens()
@@ -308,6 +366,7 @@ class DataLoader:
             mantigens=matchability_antigens,
             antigen_defaults=antigen_defaults,
             broad_split=broad_split,
+            dp4_frequencies=dp4_frequencies,
             provenance=self.provenance,
         )
 
@@ -321,6 +380,7 @@ class LoadedData(BaseModel):
     mantigens: Dict[str, List[str]]
     antigen_defaults: Dict[str, str]
     broad_split: Dict[str, Dict[str, Any]]
+    dp4_frequencies: Dict[str, DP4AlleleFrequency]
     provenance: DataProvenance
 
 

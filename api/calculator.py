@@ -1,6 +1,6 @@
 """the calculator"""
 
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from pandas import DataFrame, Series
 from pydantic import BaseModel
@@ -24,6 +24,63 @@ def split_by_dsa(donors: DataFrame, specs: List[str]) -> tuple:
         return donors, donors.iloc[0:0]
     has_dsa = donors[specs].eq(1).any(axis=1)
     return donors[~has_dsa], donors[has_dsa]
+
+
+def weighted_incompatible_count(
+    donors: DataFrame,
+    specs: List[str],
+    dp4_weights: Dict[str, Tuple[str, float]],
+) -> float:
+    """expected incompatible donor count, weighting allele level HLA-DP4 entries
+
+    The donor cohort types HLA-DP at broad antigen level, so an allele level
+    entry cannot be scored against a donor column. It is scored instead against
+    the expected carriers of that allele among the DP4 donors the entry would
+    otherwise exclude on its own:
+
+        S + sum(f * D)
+
+    where S is the donors excluded by the entry's whole donor specificities, and
+    D the further donors the broad antigen would exclude that S does not already
+    account for. Deducting S first keeps a donor counted once when the patient
+    also holds another antibody against them.
+
+    Naming both alleles of a pair is the f = 1 limit of the same expression: the
+    broad antigen resolves it, so the weights are not applied.
+    """
+    whole_specs = [spec for spec in specs if spec not in dp4_weights]
+    _, incompatible = split_by_dsa(donors, whole_specs)
+    excluded = donors.index.isin(incompatible.index)
+    expected = float(excluded.sum())
+
+    # Naming both alleles of a pair resolves it to the broad antigen, excluding
+    # whole donors. Settle every such group first: a donor already excluded
+    # outright must not also be counted as a fraction of another pair, which
+    # would otherwise make the total depend on the order the specs arrived in.
+    grouped = _dp4_weights_by_broad(specs, dp4_weights)
+    resolved = [broad for broad, weights in grouped.items() if len(weights) > 1]
+    for broad in resolved:
+        if broad in donors.columns:
+            excluded = excluded | (donors[broad].eq(1) & ~excluded).to_numpy()
+    expected = float(excluded.sum())
+
+    # Weight each remaining allele against the donors its broad antigen adds.
+    for broad, weights in grouped.items():
+        if broad in resolved or broad not in donors.columns:
+            continue
+        expected += weights[0] * float((donors[broad].eq(1) & ~excluded).sum())
+
+    return expected
+
+
+def _dp4_weights_by_broad(specs: List[str], dp4_weights: Dict[str, Tuple[str, float]]) -> Dict[str, List[float]]:
+    """group the requested allele level entries under the broad antigen they refine"""
+    grouped: Dict[str, List[float]] = {}
+    for spec in specs:
+        if spec in dp4_weights:
+            broad, fraction = dp4_weights[spec]
+            grouped.setdefault(broad, []).append(fraction)
+    return grouped
 
 
 def mismatch_counts(
@@ -99,10 +156,14 @@ class Calculator:
         hla_bdr: Dict[str, List[str]] = None,
         ag_defaults: Dict[str, List[str]] = None,
         matchability_bands: Dict[str, Dict[int, int]] = None,
+        dp4_weights: Dict[str, Tuple[str, float]] = None,
     ):
         self.abo = abo  # recipient blood group
         self.donors = donors[donors.bg == self.abo]  # blood group identical donor hla types
         self.specs = specs  # recipient antibody specs
+        # Allele level HLA-DP4 entries carry an expected carrier fraction; every
+        # other specificity excludes whole donors.
+        self.dp4_weights = dp4_weights or {}
         self.hla_bdr = hla_bdr  # broad hla B and DR antigens for matchability calculation
         self.recipient_bdr = recipient_bdr  # recipient broad hla B and DR antigens for matchability calculation
         self.compatible_donors, self.incompatible_donors = self._get_donors()
@@ -111,8 +172,12 @@ class Calculator:
 
     def calculate(self) -> Results:
         """calculcate crf and matachability"""
-        # calculate crf
-        crf = len(self.incompatible_donors) / len(self.donors)
+        # calculate crf, weighting any allele level HLA-DP4 entry
+        if self.dp4_weights and any(spec in self.dp4_weights for spec in self.specs or []):
+            incompatible = weighted_incompatible_count(self.donors, self.specs, self.dp4_weights)
+        else:
+            incompatible = len(self.incompatible_donors)
+        crf = incompatible / len(self.donors)
         # calculate matchability
         match_counts = self._get_matching_level_count()
         fav_matched = match_counts["fav"] if match_counts else None
@@ -126,8 +191,23 @@ class Calculator:
         )
 
     def _get_donors(self) -> List[DataFrame]:
-        """get compatible/incompatible donors from those blood group identical"""
-        return split_by_dsa(self.donors, self.specs)
+        """get compatible/incompatible donors from those blood group identical
+
+        A donor is whole or not at all, so the compatible split resolves an
+        allele level HLA-DP4 entry to the broad antigen it refines. Matchability
+        is therefore scored as though the patient had entered broad DP4, while
+        cRF alone carries the expected carrier fraction.
+        """
+        return split_by_dsa(self.donors, self._whole_donor_specs())
+
+    def _whole_donor_specs(self) -> List[str]:
+        """the specs as whole donor columns, allele level entries resolved to broad"""
+        resolved = []
+        for spec in self.specs or []:
+            column = self.dp4_weights[spec][0] if spec in self.dp4_weights else spec
+            if column not in resolved:
+                resolved.append(column)
+        return resolved
 
     def _get_matching_level_count(self) -> Optional[Dict[str, int]]:
         """calculate matching level count

@@ -17,6 +17,25 @@ versioning is opaque. Custom artifacts do not inherit the bundled release identi
 	$`cRF = \frac{Di}{Dall} \times 100\%`$
 
 
+### Allele-level HLA-DP4:
+The donor cohort records HLA-DP at broad antigen level, so `DPB0401` and `DPB0402` cannot be scored against a donor
+column. They are scored against the expected carriers of that allele among the DP4-positive donors, approximating the
+way NHSBT handles these two specificities:
+
+- *N* = blood group identical donors
+- *S* = donors excluded by the patient's other specificities
+- *D* = the further DP4 donors that only the DP4 entry excludes
+- *f* = carrier fraction of the allele among DP4-positive donors
+
+	$`cRF = \frac{S + f \times D}{N} \times 100\%`$
+
+Selecting `DPB4`, or both alleles together, resolves the entry to the broad antigen (the *f* = 1 limit); omitting it
+is the *f* = 0 limit. Only cRF is weighted - matchability counts whole donors and scores an allele entry as broad DP4.
+
+The carrier fractions live in the `dp4_allele_frequencies` table of the donor database, so they version with the data
+release. The bundled values are 0.86 (DPB1\*04:01) and 0.26 (DPB1\*04:02), from HLA-DPB1 typing of 456 UK deceased
+solid organ donors.
+
 ### Matchability:
 - *D<sub>fm</sub>* = the number of ABO identical, HLA-compatible and favourably matched donors 
 - Assign a matchability point according to the following matchability banding:
@@ -68,7 +87,8 @@ Set `MATCHBOX_CALC_RATE_LIMIT` to another SlowAPI limit string (for example,
 `600/minute`) when running a controlled batch deployment.
 
 - **bg**: blood group e.g. "A"
-- **specs**: antibody specs e.g. "A1,B2,DR1"
+- **specs**: antibody specs e.g. "A1,B2,DR1". `DPB0401` and `DPB0402` are allele-level HLA-DP4 entries scored by
+  carrier frequency rather than against a donor column - see *Allele-level HLA-DP4* below
 - **donor_set**: the all-donor reference calculation [0, default], aligned with the current ODT workbook; or the DP-typed-only subset
   [1], a non-official subset analysis
 - **recip_hla**: recipient HLA-B and DR type, e.g. "B7,B8,DR9". Recognised split inputs are converted to the broad

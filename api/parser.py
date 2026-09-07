@@ -32,8 +32,9 @@ def normalise_spec(token: str, vocabulary: Sequence[str]) -> Tuple[Optional[str]
     Returns (matched, suggestions). A token that cannot be matched returns
     (None, suggestions) so the caller can surface it for the user to resolve.
 
-    Handles, in order: whitespace and case; allele-level DPB1*04:01 and DPB1*0401
-    to DPB4; bare C7 to CW7 and DP4 to DPB4;
+    Handles, in order: whitespace and case; allele-level DPB1*04:01 to DPB0401
+    where the cohort scores that allele by carrier frequency, and other allele
+    forms to their broad specificity; bare C7 to CW7 and DP4 to DPB4;
     Bw4/Bw6; and a trailing split-designation suffix.
 
     Allele-to-broad conversion beyond the DPB1* form is out of scope -- the
@@ -58,6 +59,12 @@ def normalise_spec(token: str, vocabulary: Sequence[str]) -> Tuple[Optional[str]
     if stripped != text:
         candidates.append(stripped)
     text = stripped
+
+    # Allele level HLA-DP entries the cohort scores by carrier frequency rather
+    # than by a donor column. Tried before the generic allele rule below, which
+    # would otherwise collapse DPB1*04:01 to the broad DPB4 and lose the allele.
+    if match := re.match(r"^DP(?:B1?)?\*?(\d{2}):?(\d{2})$", text):
+        candidates.append(f"DPB{match.group(1)}{match.group(2)}")
 
     # Allele form: LOCUS*FIELD1[:FIELD2] or the colonless LOCUS*FFSS.
     #

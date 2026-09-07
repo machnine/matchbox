@@ -55,6 +55,7 @@ async def index(request: Request, data=Depends(load_data)):
         "antigens": data.antigens,
         "mantigens": data.mantigens,
         "mbands": data.mbands,
+        "dp4_frequencies": data.dp4_frequencies,
         "provenance": data.provenance,
         "tracking_id": tracking_id,
     }
@@ -105,6 +106,7 @@ async def calc(
         hla_bdr=data.mantigens,
         ag_defaults=data.antigen_defaults,
         matchability_bands=data.mbands,
+        dp4_weights={ag: (freq.broad, freq.carrier_fraction) for ag, freq in data.dp4_frequencies.items()},
     )
     results = calculator.calculate()
     calculation_context = CALCULATION_CONTEXTS[donor_set]
