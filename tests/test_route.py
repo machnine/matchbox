@@ -1,7 +1,10 @@
 """Calculator API endpoint tests"""
 
+import importlib
+import os
 import warnings
 from datetime import datetime
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -10,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from api import api
 from api.data import DataProvenance
+from api.ratelimiter import limiter
 from api.route import load_data
 
 with warnings.catch_warnings():
@@ -184,3 +188,31 @@ def test_calc_rejects_unsupported_recipient_hla(recip_hla):
         assert detail["invalid"]
     finally:
         api.dependency_overrides.clear()
+
+
+def test_calc_enforces_the_batch_calculation_rate_limit():
+    """The calculation endpoint must serve batch clients, not the 60/minute default.
+
+    Asserted against the limit slowapi actually registered for the route rather
+    than the module constant, so a hardcoded decorator value fails here even if
+    the constant is still present and correct. A previous refactor reverted this
+    limit silently because nothing pinned it.
+    """
+    registered = [str(limit.limit) for limit in limiter._route_limits["api.route.calc"]]
+
+    assert registered == ["300 per 1 minute"]
+
+
+def test_calculation_rate_limit_is_operator_configurable():
+    """Deployments running controlled batches must be able to raise the ceiling."""
+    module = importlib.import_module("api.route")
+
+    try:
+        with mock.patch.dict(os.environ, {"MATCHBOX_CALC_RATE_LIMIT": "600/minute"}):
+            assert importlib.reload(module).CALCULATION_RATE_LIMIT == "600/minute"
+    finally:
+        # Restore only once the patched environment is out of scope, otherwise
+        # the reload re-reads the override it is meant to undo.
+        importlib.reload(module)
+
+    assert module.CALCULATION_RATE_LIMIT == "300/minute"
