@@ -175,6 +175,34 @@ def test_alleles_are_offered_next_to_the_broad_antigen():
     assert dpb[dpb.index("DPB4") + 1 : dpb.index("DPB4") + 3] == ["DPB0401", "DPB0402"]
 
 
+def test_alleles_are_mapped_as_splits_of_the_broad_antigen():
+    """The browser links a broad antigen to its splits from this mapping.
+
+    Without these rows the DP4 checkboxes behave unlike every other broad/split
+    group on the page: ticking DPB4 would leave the alleles alone, and ticking
+    both alleles would leave DPB4 clear.
+    """
+    response = client.get("/broad-split/")
+    mapping = response.json()
+
+    assert mapping["broad_to_splits"]["DPB4"] == ["DPB0401", "DPB0402"]
+    assert mapping["split_to_broad"]["DPB0401"] == "DPB4"
+    assert mapping["split_to_broad"]["DPB0402"] == "DPB4"
+
+
+def test_selecting_the_broad_with_its_alleles_scores_as_broad():
+    """Linking the checkboxes submits all three together; that is still broad DP4."""
+    assert crf(["DPB4", "DPB0401", "DPB0402"]) == pytest.approx(crf(["DPB4"]), abs=1e-9)
+
+
+def test_allele_mapping_does_not_reach_recipient_hla():
+    """Recipient HLA resolves B and DR only, so the DP rows must not apply."""
+    response = client.get("/calc/", params={"bg": "O", "recip_hla": "B7,DR4"})
+
+    assert response.status_code == 200
+    assert response.json()["recip_hla_conversions"] == {}
+
+
 def test_missing_frequencies_fail_closed():
     """A missing fraction would silently score an allele as excluding nobody."""
     loader = DataLoader()
