@@ -12,17 +12,21 @@
     height="30"
     width="330"
     class="mb-2"
-    alt="result display image" />
+    alt="The results bar in the page header: cRF, Mp, Fm and Ad, followed by the donor set toggle" />
   <ul class="list-group">
     <li class="list-group-item">
       <a href="/crf-explainer" class="text-decoration-none"><i class="text-danger">cRF</i> - calculated reaction frequency</a>
     </li>
     <li class="list-group-item"><i class="text-primary">Mp</i> - calculated matchability point</li>
     <li class="list-group-item"><i class="text-warning">Fm</i> - favourably matched donors</li>
-    <li class="list-group-item"><i class="text-info">Ad</i> - available HLA compatible donors/total donors</li>
+    <li class="list-group-item"><i class="text-info">Ad</i> - available HLA compatible donors in the selected pool</li>
     <li class="list-group-item"><i class="text-success bi bi-toggle2-on">A</i> all 10,000 donors</li>
     <li class="list-group-item"><i class="text-success bi bi-toggle2-off">D</i> only donors with HLA-DPB1 types</li>
   </ul>
+  <p class="mt-2 mb-0">
+    <b>Pool</b> selects the donor blood groups every figure is counted over. It defaults to <b>Identical</b>, the
+    calculation the official calculator performs.
+  </p>
 
   <hr />
   <p class="fw-bold">Donor pool:</p>
@@ -61,7 +65,7 @@
     <i class="text-danger">cRF</i> = (S + <i>f</i> &times; D) / N
   </p>
   <p>
-    where <i>N</i> is the blood group identical donors, <i>S</i> those excluded by the patient's other specificities,
+    where <i>N</i> is the donors in the selected pool, <i>S</i> those excluded by the patient's other specificities,
     and <i>D</i> the further DP4 donors only the DP4 entry excludes.
     {%- set series = (dp4_frequencies or {}).values()|list %}
     {%- if series %}
@@ -116,6 +120,11 @@
     threshold values as outlined in the table above.
   </p>
   <p>
+    These thresholds were derived from <b>blood group identical</b> counts, which is why the score is not comparable
+    over a wider <b>Pool</b>: the same patient's count grows with the pool and so reads against the wrong end of this
+    table.
+  </p>
+  <p>
     <i class="text-muted">
       NB: The banding is subject to change as the calculator is updated by NHSBT-ODT. There is no set schedule.
     </i>
@@ -123,9 +132,9 @@
   <hr />
   <p class="fw-bold">HLA type for matchability calculation:</p>
   <p>
-    Matchability estimates how many levels 1 and 2 mismatched, ABO-identical, and HLA-compatible donors (a.k.a.
-    favourably matched donors, <i class="text-warning">Fm</i>) are available for a patient within the 10,000 donor
-    cohort.
+    Matchability estimates how many levels 1 and 2 mismatched, HLA-compatible donors (a.k.a. favourably matched donors,
+    <i class="text-warning">Fm</i>) are available for a patient within the 10,000 donor cohort. They are counted over
+    the selected <b>Pool</b>: ABO-identical by default, or the blood groups policy offers.
   </p>
   <p>
     The calculation is based on <b>broad</b> HLA specificities. For determining favourable matches (levels 1 and 2),
