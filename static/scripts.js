@@ -27,10 +27,8 @@ const restoreFromQueryParams = () => {
 
   const pool = params.get('pool');
   if (pool) {
-    const poolSelect = document.getElementById('id_pool');
-    if (poolSelect && Array.from(poolSelect.options).some(o => o.value === pool)) {
-      poolSelect.value = pool;
-    }
+    const poolOption = document.getElementById(`id_pool-${pool}`);
+    if (poolOption) poolOption.checked = true;
   }
 
   const splitCSV = (values) =>
@@ -389,7 +387,7 @@ const calculate = (antigenList) => {
     .map((select) => select.value)
     .filter((value) => value);
   const specs = antigenList.map((ag) => ag.name).join(",");
-  const pool = document.getElementById("id_pool").value;
+  const pool = document.querySelector("input[name='pool']:checked").value;
 
   setCalculationPending();
   fetch(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}&pool=${pool}`, {

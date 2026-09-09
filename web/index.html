@@ -86,11 +86,17 @@
                 <i class="bi bi-people-fill text-secondary"></i>
                 <span class="mx-1">Pool</span>
               </span>
-              <select class="form-select form-select-sm" id="id_pool" style="width: auto">
-                <option value="identical" selected>Identical</option>
-                <option value="tier_b">Tier B</option>
-                <option value="tier_a">Tier A</option>
-              </select>
+              <div class="pool-switch" id="id_pool" role="group" aria-label="Donor pool">
+                {% for value, label, hint in [
+                  ('identical', 'Identical', 'Blood group identical donors, as the official calculator scores'),
+                  ('tier_b', 'Tier B', 'The donor blood groups policy offers a Tier B patient'),
+                  ('tier_a', 'Tier A', 'The donor blood groups policy offers a Tier A patient')] %}
+                <input class="pool-option-input" type="radio" name="pool" id="id_pool-{{ value }}" value="{{ value }}"
+                  {% if value == 'identical' %}checked{% endif %} />
+                <label class="pool-option-label" for="id_pool-{{ value }}" title="{{ hint }}"
+                  data-bs-placement="bottom">{{ label }}</label>
+                {% endfor %}
+              </div>
             </div>
           </div>
           <div class="col-auto">
