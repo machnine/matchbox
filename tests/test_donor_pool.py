@@ -100,6 +100,51 @@ def test_a_wider_pool_scales_the_donor_counts(bg, groups):
     assert widened.favourable > identical.favourable
 
 
+# Ad and Fm for the worked patient below, over every blood group and pool. Both
+# are counts of donors in the cohort, so they are pinned exactly; Mp is derived
+# from the band table in force rather than hardcoded, because a band revision
+# should not fail these.
+WORKED_PATIENT_COUNTS = {
+    ("O", "identical"): (2640, 91),
+    ("O", "tier_b"): (2640, 91),
+    ("O", "tier_a"): (2640, 91),
+    ("A", "identical"): (2340, 96),
+    ("A", "tier_b"): (2340, 96),
+    ("A", "tier_a"): (4980, 187),
+    ("B", "identical"): (533, 15),
+    ("B", "tier_b"): (3173, 106),
+    ("B", "tier_a"): (3173, 106),
+    ("AB", "identical"): (177, 5),
+    ("AB", "tier_b"): (2517, 101),
+    ("AB", "tier_a"): (5157, 192),
+}
+
+
+def band_for(bg, favourable):
+    """The band the table in force gives this count for this blood group."""
+    return next(band for band, threshold in sorted(BASE.mbands[bg].items()) if favourable >= threshold)
+
+
+@pytest.mark.parametrize("key, expected", sorted(WORKED_PATIENT_COUNTS.items()))
+def test_counts_and_band_for_one_patient_across_every_pool(key, expected):
+    """One patient, twelve pools: the compatible count, the favourable count,
+    and the band each pool produces.
+
+    Unacceptable A1, B8 and DR17 against a B7, DR4 recipient. Pinned so a change
+    to the pool arithmetic shows up as a specific wrong number rather than only
+    as a broken invariant.
+    """
+    bg, pool = key
+    expected_available, expected_favourable = expected
+    groups = [bg] if pool == "identical" else list(BASE.abo_pools[(bg, pool)].donor_groups)
+
+    result = calculate(bg, groups)
+
+    assert result.available == expected_available
+    assert result.favourable == expected_favourable
+    assert result.matchability == band_for(bg, expected_favourable)
+
+
 @pytest.mark.parametrize("bg", ["O", "A", "B", "AB"])
 def test_every_pool_for_a_blood_group_contains_the_identical_one(bg):
     """A policy pool only ever adds donors, so it can never score fewer."""
@@ -218,6 +263,57 @@ def test_matchability_status_flags_only_a_genuinely_wider_pool(key, expected):
 
 def test_api_rejects_an_unknown_pool():
     assert client.get("/calc/", params={"bg": "B", "pool": "everything"}).status_code == 422
+
+
+@pytest.mark.parametrize("pool", ["identical", "tier_b", "tier_a"])
+def test_the_pool_applies_within_the_dp_typed_subset_too(pool):
+    """The two selectors are independent: donor_set narrows the cohort, pool
+    widens the blood groups taken from it."""
+    response = client.get(
+        "/calc/", params={"bg": "AB", "specs": "A1", "pool": pool, "donor_set": 1}
+    ).json()
+
+    typed = BASE.donors[1]
+    expected = int(typed.bg.isin(response["pool_groups"]).sum())
+
+    assert response["pool_size"] == expected
+    assert response["donor_cohort"] == "dp_typed_only"
+    assert response["results"]["available"] <= expected
+
+
+@pytest.mark.parametrize("bg, pool", [("AB", "identical"), ("AB", "tier_a"), ("B", "tier_b")])
+def test_dp4_weighting_applies_over_the_selected_pool(bg, pool):
+    """An allele level DP4 entry is weighted against the DP4 donors of whichever
+    pool is in force, not always the blood group identical ones."""
+    params = {"bg": bg, "specs": "DPB0402", "pool": pool}
+    weighted = client.get("/calc/", params=params).json()["results"]["crf"]
+    broad = client.get("/calc/", params={**params, "specs": "DPB4"}).json()["results"]["crf"]
+
+    fraction = BASE.dp4_frequencies["DPB0402"].carrier_fraction
+    assert weighted == pytest.approx(broad * fraction, abs=1e-9)
+
+
+def test_a_patient_with_no_antibodies_scores_zero_over_every_pool():
+    """The denominator changes; a cRF of nothing excluded does not."""
+    for bg in ("O", "A", "B", "AB"):
+        for pool in ("identical", "tier_b", "tier_a"):
+            response = client.get("/calc/", params={"bg": bg, "specs": "", "pool": pool}).json()
+
+            assert response["results"]["crf"] == 0
+            assert response["results"]["available"] == response["pool_size"]
+
+
+def test_the_pool_survives_a_shared_url_round_trip():
+    """The query contract the browser rebuilds its state from."""
+    response = client.get(
+        "/calc/",
+        params={"bg": "AB", "specs": "A1,B8", "recip_hla": "B7,DR4", "pool": "tier_b", "donor_set": 0},
+    ).json()
+
+    assert response["pool"] == "tier_b"
+    assert response["pool_groups"] == ["AB", "A"]
+    assert response["bg"] == "AB"
+    assert response["specs"] == ["A1", "B8"]
 
 
 def test_missing_pools_fail_closed():
