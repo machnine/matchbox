@@ -56,6 +56,16 @@
       </button>
     </div>
   </header>
+  <div class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 px-3 mx-auto" id="pool-banner" hidden>
+    <div class="alert alert-warning d-flex align-items-center gap-2 py-1 px-2 mb-0 xsmall" role="status">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span>
+        Scored against <strong id="pool-banner-groups"></strong>
+        (<span id="pool-banner-size"></span> donors).
+        <b>Mp</b> is banded on blood group identical counts and is not comparable over this pool.
+      </span>
+    </div>
+  </div>
   <main class="col-md-11 col-lg-10 col-xl-9 col-xxl-8 px-3 mx-auto" style="padding-top: 50px">
     <div class="row">
       <div class="col-12">
@@ -76,6 +86,21 @@
                 </div>
                 {% endfor %}
               </div>
+            </div>
+          </div>
+          <div class="col-auto pe-5">
+            <div class="d-flex gap-3 align-items-center">
+              <span class="text-muted d-flex align-items-center"
+                title="Donor blood groups scored against, per kidney allocation policy POL186"
+                data-bs-placement="bottom">
+                <i class="bi bi-people-fill text-secondary"></i>
+                <span class="mx-1">Pool</span>
+              </span>
+              <select class="form-select form-select-sm" id="id_pool" style="width: auto">
+                <option value="identical" selected>Identical</option>
+                <option value="tier_b">Tier B</option>
+                <option value="tier_a">Tier A</option>
+              </select>
             </div>
           </div>
           <div class="col-auto">

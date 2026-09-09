@@ -25,6 +25,32 @@
   </ul>
 
   <hr />
+  <p class="fw-bold">Donor pool:</p>
+  <p>
+    The calculation scores against blood group identical donors, as the official calculator does. Kidney allocation
+    policy offers several recipients compatible non-identical donors as well, and which ones depends on their tier.
+  </p>
+  <table class="table table-sm text-center table-bordered table-striped">
+    <tr><th>Recipient</th><th>Identical</th><th>Tier B</th><th>Tier A</th></tr>
+    <tr><td>O</td><td>O</td><td>O</td><td>O</td></tr>
+    <tr><td>A</td><td>A</td><td>A</td><td>A+O</td></tr>
+    <tr><td>B</td><td>B</td><td>B+O</td><td>B+O</td></tr>
+    <tr><td>AB</td><td>AB</td><td>AB+A</td><td>AB+A+O</td></tr>
+  </table>
+  <p>
+    Tier is an input, not something the calculator can work out: the 7 year waiting rule is patient data it never sees.
+    Blood group B and AB patients are offered non-identical donors in <i>both</i> tiers, so <b>Identical</b> is the only
+    setting that reproduces the value NHSBT holds for them.
+  </p>
+  <p>
+    <i class="text-danger">cRF</i>, <i class="text-warning">Fm</i> and <i class="text-info">Ad</i> are sound over any
+    pool. <b><i class="text-primary">Mp</i> is not.</b> It is a decile rank built from blood group identical counts, so
+    a count drawn from a wider pool reads low against it &mdash; a blood group AB patient whose true score is 6 reads as
+    1, the easiest band. The score is shown with a warning rather than hidden, but it should not be compared with the
+    score on the waiting list.
+  </p>
+
+  <hr />
   <p class="fw-bold">Allele level HLA-DP4:</p>
   <p>
     The donor cohort records HLA-DP at broad antigen level, so <b>DPB0401</b> and <b>DPB0402</b> cannot be scored

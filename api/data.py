@@ -27,7 +27,7 @@ EXCLUDED_ANTIGENS = ["A19_S", "CW13"]
 DEFAULT_DATABASE_PATH = "data/donors.db"
 DEFAULT_DONOR_TABLE = "donors_v3"
 DEFAULT_MATCHABILITY_BAND_VERSION = 4
-DEFAULT_DONOR_DATABASE_SHA256 = "fe3abe87bcf830a48071a62ddf4c6c354b576445970b51aae7fc2b3a85a47bdb"
+DEFAULT_DONOR_DATABASE_SHA256 = "57eb2019be0cca9c5cd44541580760d8090928b9ff84c993e3b051b7c19e7f98"
 UPSTREAM_SOURCE_FILE = "hla-mm-and-crf_2024.xlsb"
 UPSTREAM_SOURCE_FILE_SIZE_SIGNATURE = 24_099_579
 UPSTREAM_SOURCE_FILE_SHA256 = "66d125adcc94d82236bd6ba719be59b1ff7a11484f9c605c36fb9760dfc69649"
@@ -62,6 +62,23 @@ class DP4AlleleFrequency(BaseModel):
     label: str = Field(min_length=1)
     source: str = Field(min_length=1)
     source_n: int = Field(gt=0)
+
+
+class DonorPool(BaseModel):
+    """The donor blood groups one recipient group can be offered under policy.
+
+    The calculator scores against blood group identical donors, but kidney
+    allocation policy offers several recipients compatible non-identical donors
+    as well, and which ones depends on the patient's tier. The memberships are
+    held with the donor data rather than in code so they version with the data
+    release [POL186/21 blood group eligibility].
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    recipient: str = Field(min_length=1)
+    tier: Literal["tier_b", "tier_a"]
+    donor_groups: Tuple[str, ...] = Field(min_length=1)
 
 
 class DataProvenance(BaseModel):
@@ -320,6 +337,50 @@ class DataLoader:
 
         return frequencies
 
+    def abo_pools(self) -> Dict[Tuple[str, str], DonorPool]:
+        """load the donor blood groups each recipient group can be offered
+
+        Keyed by (recipient, tier). A missing or malformed pool is a hard
+        failure rather than a silent empty mapping: an empty pool would score a
+        patient against an empty denominator.
+        """
+        data = self._load_table("abo_pools")
+        if data.empty or not {"recipient", "tier", "donor_group", "ordinal"} <= set(data.columns):
+            raise DataLoadError("Missing or malformed donor pool memberships")
+
+        grouped: Dict[Tuple[str, str], List[Tuple[int, str]]] = defaultdict(list)
+        for _, row in data.iterrows():
+            grouped[(str(row["recipient"]), str(row["tier"]))].append((int(row["ordinal"]), str(row["donor_group"])))
+
+        try:
+            pools = {
+                key: DonorPool(
+                    recipient=key[0],
+                    tier=key[1],
+                    donor_groups=tuple(group for _, group in sorted(members)),
+                )
+                for key, members in grouped.items()
+            }
+        except (TypeError, ValueError) as exc:
+            raise DataLoadError(f"Invalid donor pool memberships: {exc}") from exc
+
+        blood_groups = {"O", "A", "B", "AB"}
+        expected = {(recipient, tier) for recipient in blood_groups for tier in ("tier_b", "tier_a")}
+        if set(pools) != expected:
+            raise DataLoadError(f"Donor pools missing for: {sorted(expected - set(pools))}")
+
+        cohort_groups = set(self.donors[0].bg.unique())
+        for key, pool in pools.items():
+            unknown = set(pool.donor_groups) - cohort_groups
+            if unknown:
+                raise DataLoadError(f"Donor pool {key} names unknown blood groups: {sorted(unknown)}")
+            # A recipient is always offered their own group; a pool that omits it
+            # would silently exclude the donors the calculator is meant to score.
+            if pool.recipient not in pool.donor_groups:
+                raise DataLoadError(f"Donor pool {key} omits the recipient's own blood group")
+
+        return pools
+
     def broad_split_mapping(self) -> Dict[str, Dict[str, Any]]:
         """load broad/split antigen mappings"""
         try:
@@ -353,6 +414,7 @@ class DataLoader:
         matchability_antigens = self.matchability_antigens()
         antigen_defaults = self.antigen_defaults()
         broad_split = self.broad_split_mapping()
+        abo_pools = self.abo_pools()
 
         self._reject_wal_artifacts()
         final_sha256 = self._file_sha256(self.db_path)
@@ -367,6 +429,7 @@ class DataLoader:
             antigen_defaults=antigen_defaults,
             broad_split=broad_split,
             dp4_frequencies=dp4_frequencies,
+            abo_pools=abo_pools,
             provenance=self.provenance,
         )
 
@@ -381,6 +444,7 @@ class LoadedData(BaseModel):
     antigen_defaults: Dict[str, str]
     broad_split: Dict[str, Dict[str, Any]]
     dp4_frequencies: Dict[str, DP4AlleleFrequency]
+    abo_pools: Dict[Tuple[str, str], DonorPool]
     provenance: DataProvenance
 
 

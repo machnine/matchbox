@@ -3,7 +3,7 @@
 import os
 from collections import defaultdict
 from datetime import UTC, datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -27,6 +27,14 @@ templates.env.globals["asset_version"] = asset_version
 # per-client ceiling, but allow local/deployment operators to tune it without a
 # code change when running controlled calculations.
 CALCULATION_RATE_LIMIT = os.getenv("MATCHBOX_CALC_RATE_LIMIT", "300/minute")
+
+# The matchability band is a decile rank derived from blood group identical
+# counts. Over a wider pool the same patient's count rises with the pool, so the
+# band reads low and is not comparable with the value NHSBT holds. The status
+# travels with the result, into the API response and the export, rather than
+# living only as a label in the browser.
+MATCHABILITY_BANDED = "banded"
+MATCHABILITY_NOT_COMPARABLE = "not_comparable_wider_pool"
 
 CALCULATION_CONTEXTS = {
     0: {
@@ -77,10 +85,18 @@ async def calc(
     data=Depends(load_data, use_cache=True),
     donor_set: int = Query(0, ge=0, le=1, description="Donor set [ALL=0, DPB=1]"),
     recip_hla: Optional[str] = Query(None, pattern=r"^$|^([ABCD][QRPW]?\d{1,3},?)+$", description="Recipient HLA-B/DR"),
+    pool: Literal["identical", "tier_b", "tier_a"] = Query(
+        "identical", description="Donor pool: blood group identical [default], or a policy tier"
+    ),
 ):
     """calculate matchability"""
     donors = data.donors[donor_set]
     total = len(donors)
+    pool_groups = (bg,) if pool == "identical" else data.abo_pools[(bg, pool)].donor_groups
+    pool_size = int(donors.bg.isin(pool_groups).sum())
+    # Wider than identical only where policy actually adds a group; for a group O
+    # recipient, and a group A recipient in tier B, the pools coincide.
+    widened = set(pool_groups) != {bg}
     recip_hla_input = recip_hla.split(",") if recip_hla else []
     recip_hla_list, recip_hla_conversions = canonicalise_recipient_hla(
         recip_hla_input,
@@ -107,6 +123,7 @@ async def calc(
         ag_defaults=data.antigen_defaults,
         matchability_bands=data.mbands,
         dp4_weights={ag: (freq.broad, freq.carrier_fraction) for ag, freq in data.dp4_frequencies.items()},
+        pool_groups=pool_groups,
     )
     results = calculator.calculate()
     calculation_context = CALCULATION_CONTEXTS[donor_set]
@@ -116,6 +133,10 @@ async def calc(
         "results": results,
         "total": total,
         "donor_set": donor_set,
+        "pool": pool,
+        "pool_groups": list(pool_groups),
+        "pool_size": pool_size,
+        "matchability_status": MATCHABILITY_NOT_COMPARABLE if widened else MATCHABILITY_BANDED,
         **calculation_context,
         "calculated_at": datetime.now(UTC),
         "provenance": data.provenance,

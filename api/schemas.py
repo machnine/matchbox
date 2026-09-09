@@ -17,6 +17,10 @@ class CalculationResponse(BaseModel):
     results: Results
     total: int
     donor_set: Literal[0, 1]
+    pool: Literal["identical", "tier_b", "tier_a"]
+    pool_groups: List[str]
+    pool_size: int
+    matchability_status: Literal["banded", "not_comparable_wider_pool"]
     donor_cohort: Literal["all_donors", "dp_typed_only"]
     calculation_mode: Literal["all_donors_reference", "dp_typed_subset"]
     calculated_at: datetime

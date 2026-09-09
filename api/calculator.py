@@ -1,6 +1,6 @@
 """the calculator"""
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from pandas import DataFrame, Series
 from pydantic import BaseModel
@@ -157,9 +157,14 @@ class Calculator:
         ag_defaults: Dict[str, List[str]] = None,
         matchability_bands: Dict[str, Dict[int, int]] = None,
         dp4_weights: Dict[str, Tuple[str, float]] = None,
+        pool_groups: Sequence[str] = None,
     ):
         self.abo = abo  # recipient blood group
-        self.donors = donors[donors.bg == self.abo]  # blood group identical donor hla types
+        # Donor blood groups scored against. Defaults to the recipient's own, the
+        # calculation the official calculator performs; a policy pool widens it to
+        # the groups allocation policy offers them.
+        self.pool_groups = tuple(pool_groups) if pool_groups else (abo,)
+        self.donors = donors[donors.bg.isin(self.pool_groups)]
         self.specs = specs  # recipient antibody specs
         # Allele level HLA-DP4 entries carry an expected carrier fraction; every
         # other specificity excludes whole donors.

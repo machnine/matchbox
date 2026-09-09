@@ -17,6 +17,28 @@ versioning is opaque. Custom artifacts do not inherit the bundled release identi
 	$`cRF = \frac{Di}{Dall} \times 100\%`$
 
 
+### Donor pool:
+The calculation scores against blood group identical donors by default, which is what the official calculator does.
+Kidney allocation policy (POL186) offers several recipients compatible non-identical donors as well, and which ones
+depends on the patient's tier. The `pool` parameter selects the denominator:
+
+| Recipient | `identical` | `tier_b` | `tier_a` |
+|-----------|------------:|---------:|---------:|
+| O         | O — 4,620   | O — 4,620 | O — 4,620 |
+| A         | A — 4,094   | A — 4,094 | A+O — 8,714 |
+| B         | B — 962     | B+O — 5,582 | B+O — 5,582 |
+| AB        | AB — 324    | AB+A — 4,418 | AB+A+O — 9,038 |
+
+Tier is an input, not something the calculator derives: the 7-year waiting rule is patient data it never sees, and the
+matchability-10 rule is circular. Note B and AB recipients are offered non-identical donors in *both* tiers, so
+`identical` is the only way to reproduce the value NHSBT holds for them.
+
+**The matchability score is not comparable over a wider pool.** It is a decile rank derived from blood group identical
+counts, so a count drawn from a larger pool reads low against it - a group AB patient whose true band is 6 reads as
+band 1. The response carries `matchability_status`, which is `banded` when the pool is blood group identical and
+`not_comparable_wider_pool` otherwise; the same status is written to exported profiles. Re-deriving honest bands needs
+every patient's accessible count at once, which a single-patient calculator cannot do.
+
 ### Allele-level HLA-DP4:
 The donor cohort records HLA-DP at broad antigen level, so `DPB0401` and `DPB0402` cannot be scored against a donor
 column. They are scored against the expected carriers of that allele among the DP4-positive donors, approximating the
@@ -91,6 +113,8 @@ Set `MATCHBOX_CALC_RATE_LIMIT` to another SlowAPI limit string (for example,
   carrier frequency rather than against a donor column - see *Allele-level HLA-DP4* below
 - **donor_set**: the all-donor reference calculation [0, default], aligned with the current ODT workbook; or the DP-typed-only subset
   [1], a non-official subset analysis
+- **pool**: donor blood groups scored against - `identical` (default, blood group identical), `tier_b` or `tier_a` (the
+  groups allocation policy offers). The response reports `pool`, `pool_groups`, `pool_size` and `matchability_status`
 - **recip_hla**: recipient HLA-B and DR type, e.g. "B7,B8,DR9". Recognised split inputs are converted to the broad
   specificities used by the calculation; the response reports both `recip_hla_used` and `recip_hla_conversions`.
 

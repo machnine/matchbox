@@ -1,6 +1,6 @@
 const MatchboxProfileExport = (() => {
   const DP_TYPED_DONOR_SET = 1;
-  const PROFILE_EXPORT_SCHEMA_VERSION = 2;
+  const PROFILE_EXPORT_SCHEMA_VERSION = 3;
   const PROFILE_HEADERS = Object.freeze([
     "CRF (%)",
     "Matchability",
@@ -12,6 +12,9 @@ const MatchboxProfileExport = (() => {
     "Added",
     "Calculated At (UTC)",
     "Blood Group",
+    "Pool",
+    "Pool Groups",
+    "Pool Size",
     "Donor Set",
     "Donor Cohort",
     "Calculation Mode",
@@ -55,15 +58,23 @@ const MatchboxProfileExport = (() => {
       added: previousProfile ? specs.filter((spec) => !previousSpecs.includes(spec)) : [],
       calculated_at: data.calculated_at ?? null,
       bg: data.bg ?? null,
+      pool: data.pool ?? "identical",
+      pool_groups: copyArray(data.pool_groups),
+      pool_size: data.pool_size ?? null,
       donor_set: data.donor_set,
       donor_cohort: data.donor_cohort ?? null,
       calculation_mode: data.calculation_mode ?? null,
       cohort_size: data.total,
+      // A band read over a wider pool is the stronger caveat: the number is
+      // present but not comparable with the identical-pool score, so it must
+      // outrank "calculated" wherever the row is read later.
       matchability_status: isDpTypedSubset
         ? "not_applicable_dp_typed_subset"
-        : hasMatchability
-          ? "calculated"
-          : "not_calculated",
+        : data.matchability_status === "not_comparable_wider_pool"
+          ? "not_comparable_wider_pool"
+          : hasMatchability
+            ? "calculated"
+            : "not_calculated",
       recip_hla_used: copyArray(data.recip_hla_used),
       recip_hla_conversions: { ...(data.recip_hla_conversions ?? {}) },
       provenance: { ...(data.provenance ?? {}) },
@@ -85,6 +96,9 @@ const MatchboxProfileExport = (() => {
     "Added": listForTsv(row.added),
     "Calculated At (UTC)": row.calculated_at ?? "",
     "Blood Group": row.bg ?? "",
+    "Pool": row.pool ?? "",
+    "Pool Groups": listForTsv(row.pool_groups),
+    "Pool Size": row.pool_size ?? "",
     "Donor Set": row.donor_set ?? "",
     "Donor Cohort": row.donor_cohort ?? "",
     "Calculation Mode": row.calculation_mode ?? "",

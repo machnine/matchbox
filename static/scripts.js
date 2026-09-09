@@ -25,6 +25,14 @@ const restoreFromQueryParams = () => {
     }
   }
 
+  const pool = params.get('pool');
+  if (pool) {
+    const poolSelect = document.getElementById('id_pool');
+    if (poolSelect && Array.from(poolSelect.options).some(o => o.value === pool)) {
+      poolSelect.value = pool;
+    }
+  }
+
   const splitCSV = (values) =>
     values.flatMap(v => v.split(',')).map(v => v.trim().toUpperCase()).filter(Boolean);
 
@@ -279,6 +287,20 @@ const displaySelectedAntigens = (antigenList) => {
   inputArea.value = plainTextSpecs ? plainTextSpecs + ", " : "";
 };
 
+// The matchability band is a decile rank built from blood group identical
+// counts, so over a wider pool it reads low. Surface that beside the value
+// itself rather than in a tooltip: it has to survive a screenshot.
+const renderPoolBanner = (data) => {
+  const banner = document.getElementById("pool-banner");
+  const notComparable = data.matchability_status === "not_comparable_wider_pool";
+  banner.hidden = !notComparable;
+  if (notComparable) {
+    document.getElementById("pool-banner-groups").textContent = data.pool_groups.join(" + ");
+    document.getElementById("pool-banner-size").textContent = data.pool_size.toLocaleString();
+  }
+  document.getElementById("mp-text").classList.toggle("text-warning", notComparable);
+};
+
 const renderCalculation = (data) => {
   document.getElementById("crf-text").classList.remove("text-danger");
   document.getElementById("crf-text").textContent = (data.results.crf * 100).toFixed(2) + "%";
@@ -303,6 +325,8 @@ const renderCalculation = (data) => {
       placement: "bottom"
     });
   }
+
+  renderPoolBanner(data);
 
   clearMatchCounts();
   if (data.donor_set === 0 && data.results.match_counts) {
@@ -340,9 +364,10 @@ const calculate = (antigenList) => {
     .map((select) => select.value)
     .filter((value) => value);
   const specs = antigenList.map((ag) => ag.name).join(",");
+  const pool = document.getElementById("id_pool").value;
 
   setCalculationPending();
-  fetch(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}`, {
+  fetch(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}&pool=${pool}`, {
     signal: requestController.signal,
   })
     .then((response) => {
@@ -407,6 +432,9 @@ const aboInputs = document.querySelectorAll("input[name='abo']");
 aboInputs.forEach((aboInput) => {
   aboInput.addEventListener("change", recalculate);
 });
+
+// donor pool: blood group identical, or the groups policy offers in each tier
+document.getElementById("id_pool").addEventListener("change", recalculate);
 
 // toggle donors with/without DP types
 const dpToggle = document.getElementById("id_dp-toggle");

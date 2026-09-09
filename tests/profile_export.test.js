@@ -8,6 +8,12 @@ const {
   profilesToTsv,
 } = require("../static/profile-export.js");
 
+const tsvRow = (profile) => {
+  const [headerLine, valueLine] = profilesToTsv([profile]).split("\n");
+  const values = valueLine.split("\t");
+  return Object.fromEntries(headerLine.split("\t").map((header, i) => [header, values[i]]));
+};
+
 const responseFixture = () => ({
   bg: "O",
   specs: ["A1", "DPB4"],
@@ -98,7 +104,35 @@ test("TSV keeps legacy columns first and appends authoritative context", () => {
   assert.equal(row["Recipient HLA Used"], "B12,DR3");
   assert.equal(row["Donor Database SHA-256"], "a".repeat(64));
   assert.equal(row["Data Release"], "nhsbt_hla_mm_crf_2024");
-  assert.equal(row["Export Schema Version"], "2");
+  assert.equal(row["Export Schema Version"], "3");
+});
+
+test("the donor pool travels with an exported profile", () => {
+  const response = responseFixture();
+  response.donor_set = 0;
+  response.pool = "tier_a";
+  response.pool_groups = ["AB", "A", "O"];
+  response.pool_size = 9038;
+  response.matchability_status = "not_comparable_wider_pool";
+
+  const row = tsvRow(buildProfileRecord(response));
+
+  assert.equal(row.Pool, "tier_a");
+  assert.equal(row["Pool Groups"], "AB,A,O");
+  assert.equal(row["Pool Size"], "9038");
+  // The band is present but was read against identical-pool thresholds, so the
+  // caveat has to outrank "calculated" for anyone reading the row later.
+  assert.equal(row["Matchability Status"], "not_comparable_wider_pool");
+});
+
+test("an identical-pool profile is unchanged by the pool columns", () => {
+  const response = responseFixture();
+  response.donor_set = 0;
+
+  const row = tsvRow(buildProfileRecord(response));
+
+  assert.equal(row.Pool, "identical");
+  assert.equal(row["Matchability Status"], "calculated");
 });
 
 test("profile antibody deltas retain the existing adjacent-profile behavior", () => {
