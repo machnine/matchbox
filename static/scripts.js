@@ -287,6 +287,16 @@ const displaySelectedAntigens = (antigenList) => {
   inputArea.value = plainTextSpecs ? plainTextSpecs + ", " : "";
 };
 
+// Metric tooltips name the donors the figure was actually counted over, so they
+// stay true when the pool is not blood group identical.
+const setMetricTooltip = (id, text) => {
+  const element = document.getElementById(id);
+  if (!element) return;
+  element.setAttribute("title", text);
+  element.setAttribute("data-bs-original-title", text);
+  bootstrap.Tooltip.getInstance(element)?.setContent({ ".tooltip-inner": text });
+};
+
 // The matchability band is a decile rank built from blood group identical
 // counts, so over a wider pool it reads low. Surface that beside the value
 // itself rather than in a tooltip: it has to survive a screenshot.
@@ -299,6 +309,21 @@ const renderPoolBanner = (data) => {
     document.getElementById("pool-banner-size").textContent = data.pool_size.toLocaleString();
   }
   document.getElementById("mp-text").classList.toggle("text-warning", notComparable);
+
+  const groups = (data.pool_groups ?? [data.bg]).join(" + ");
+  const size = (data.pool_size ?? 0).toLocaleString();
+  setMetricTooltip(
+    "avd-metric",
+    notComparable
+      ? `HLA-compatible donors from blood group ${groups} (${size})`
+      : `HLA-compatible, ABO-identical donors (${size})`
+  );
+  setMetricTooltip(
+    "mp-metric",
+    notComparable
+      ? `Matchability point — banded on ABO-identical counts, not comparable over blood group ${groups}`
+      : "Matchability point"
+  );
 };
 
 const renderCalculation = (data) => {
