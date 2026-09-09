@@ -87,13 +87,28 @@ def test_the_calculator_defaults_to_blood_group_identical():
         assert calculate(bg) == calculate(bg, pool_groups=[bg])
 
 
-def test_a_wider_pool_scales_the_donor_counts():
+@pytest.mark.parametrize(
+    "bg, groups",
+    [("A", ["A", "O"]), ("B", ["B", "O"]), ("AB", ["AB", "A"]), ("AB", ["AB", "A", "O"])],
+)
+def test_a_wider_pool_scales_the_donor_counts(bg, groups):
     """Ad and Fm are counts of real donors, so they grow with the pool."""
-    identical = calculate("AB", ["AB"])
-    widened = calculate("AB", ["AB", "A", "O"])
+    identical = calculate(bg, [bg])
+    widened = calculate(bg, groups)
 
     assert widened.available > identical.available
     assert widened.favourable > identical.favourable
+
+
+@pytest.mark.parametrize("bg", ["O", "A", "B", "AB"])
+def test_every_pool_for_a_blood_group_contains_the_identical_one(bg):
+    """A policy pool only ever adds donors, so it can never score fewer."""
+    identical = calculate(bg, [bg])
+
+    for tier in ("tier_b", "tier_a"):
+        widened = calculate(bg, BASE.abo_pools[(bg, tier)].donor_groups)
+        assert widened.available >= identical.available
+        assert widened.favourable >= identical.favourable
 
 
 def test_a_wider_pool_barely_moves_crf():
@@ -131,18 +146,29 @@ def test_the_band_is_read_against_the_recipients_own_blood_group():
     assert reordered.matchability == 1
 
 
-@pytest.mark.parametrize(
-    "bg, pool, groups, size",
-    [
-        ("O", "identical", ["O"], 4620),
-        ("O", "tier_a", ["O"], 4620),
-        ("A", "tier_b", ["A"], 4094),
-        ("A", "tier_a", ["A", "O"], 8714),
-        ("B", "tier_b", ["B", "O"], 5582),
-        ("AB", "tier_a", ["AB", "A", "O"], 9038),
-    ],
-)
-def test_api_reports_the_pool_it_scored_against(bg, pool, groups, size):
+# Every blood group against every pool. Stated in full rather than sampled: the
+# whole matrix is twelve rows, and the interesting cases are the asymmetric ones
+# (AB in tier B gains A but not O; B gains O in both tiers).
+API_MATRIX = {
+    ("O", "identical"): (["O"], 4620, "banded"),
+    ("O", "tier_b"): (["O"], 4620, "banded"),
+    ("O", "tier_a"): (["O"], 4620, "banded"),
+    ("A", "identical"): (["A"], 4094, "banded"),
+    ("A", "tier_b"): (["A"], 4094, "banded"),
+    ("A", "tier_a"): (["A", "O"], 8714, "not_comparable_wider_pool"),
+    ("B", "identical"): (["B"], 962, "banded"),
+    ("B", "tier_b"): (["B", "O"], 5582, "not_comparable_wider_pool"),
+    ("B", "tier_a"): (["B", "O"], 5582, "not_comparable_wider_pool"),
+    ("AB", "identical"): (["AB"], 324, "banded"),
+    ("AB", "tier_b"): (["AB", "A"], 4418, "not_comparable_wider_pool"),
+    ("AB", "tier_a"): (["AB", "A", "O"], 9038, "not_comparable_wider_pool"),
+}
+
+
+@pytest.mark.parametrize("key, expected", sorted(API_MATRIX.items()))
+def test_api_reports_the_pool_it_scored_against(key, expected):
+    bg, pool = key
+    groups, size, _ = expected
     response = client.get("/calc/", params={"bg": bg, "specs": "A1", "pool": pool})
 
     assert response.status_code == 200
@@ -150,6 +176,20 @@ def test_api_reports_the_pool_it_scored_against(bg, pool, groups, size):
     assert body["pool"] == pool
     assert body["pool_groups"] == groups
     assert body["pool_size"] == size
+
+
+@pytest.mark.parametrize("key, expected", sorted(API_MATRIX.items()))
+def test_the_denominator_is_the_pool_the_api_reports(key, expected):
+    """cRF must be scored over the pool named in the response, not some other one."""
+    bg, pool = key
+    groups, size, _ = expected
+    response = client.get("/calc/", params={"bg": bg, "specs": "A1", "pool": pool}).json()
+
+    available = response["results"]["available"]
+    crf = response["results"]["crf"]
+
+    assert available <= size
+    assert crf == pytest.approx(1 - available / size, abs=1e-9)
 
 
 def test_api_defaults_to_identical():
@@ -162,22 +202,18 @@ def test_api_defaults_to_identical():
     assert without["results"] == explicit["results"]
 
 
-@pytest.mark.parametrize(
-    "bg, pool, expected",
-    [
-        ("B", "identical", "banded"),
-        ("O", "tier_a", "banded"),  # policy adds nothing, so the band still stands
-        ("A", "tier_b", "banded"),  # likewise
-        ("A", "tier_a", "not_comparable_wider_pool"),
-        ("B", "tier_b", "not_comparable_wider_pool"),
-        ("AB", "tier_a", "not_comparable_wider_pool"),
-    ],
-)
-def test_matchability_status_flags_only_a_genuinely_wider_pool(bg, pool, expected):
-    """The caveat must fire when the pool really is wider, and not otherwise."""
+@pytest.mark.parametrize("key, expected", sorted(API_MATRIX.items()))
+def test_matchability_status_flags_only_a_genuinely_wider_pool(key, expected):
+    """The caveat must fire when the pool really is wider, and not otherwise.
+
+    A group O recipient, and a group A recipient in tier B, select a policy pool
+    that adds nobody, so their band still stands and must not be flagged.
+    """
+    bg, pool = key
+    _, _, status = expected
     response = client.get("/calc/", params={"bg": bg, "specs": "A1", "pool": pool})
 
-    assert response.json()["matchability_status"] == expected
+    assert response.json()["matchability_status"] == status
 
 
 def test_api_rejects_an_unknown_pool():
