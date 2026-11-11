@@ -237,8 +237,13 @@ body {
 
 /* consistent width for recipient HLA select dropdowns */
 .recip-hla-select {
-  width: 70px;
-  min-width: 70px;
+  /* fits the longest option (DR103): Bootstrap reserves 2.25rem for the arrow,
+     which left too little room and clipped e.g. DR13 to "DR1" */
+  width: 84px;
+  min-width: 84px;
+  padding-right: 1.5rem;
+  background-position: right 0.4rem center;
+  background-size: 12px 10px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   transition: box-shadow 0.2s ease;
 }
