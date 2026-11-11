@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from api.data import DataLoader, DataLoadError, DataProvenance
+from api.data import DEFAULT_DONOR_DATABASE_SHA256, DataLoader, DataLoadError, DataProvenance
 
 TEST_DATABASE_SHA256 = "c" * 64
 
@@ -236,16 +236,66 @@ def test_invalid_matchability_band_release_is_rejected():
         loader._validate_matchability_bands({})
 
 
-@pytest.mark.parametrize("version", [1, 2, 3, 4])
-def test_bundled_matchability_band_shapes_are_valid(version):
+@pytest.mark.parametrize(
+    "version,data_release",
+    [
+        (1, None),
+        (2, None),
+        (3, None),
+        (4, "nhsbt_hla_mm_crf_2024"),
+        (5, "nhsbt_hla_mm_crf_22oct2026"),
+    ],
+)
+def test_bundled_matchability_band_shapes_are_valid(version, data_release):
     loader = DataLoader(matchability_ver=version)
     bands = loader.matchability_bands()
 
     loader._validate_matchability_bands(bands)
-    if version == 4:
-        assert loader.provenance.data_release == "nhsbt_hla_mm_crf_2024"
-    else:
-        assert loader.provenance.data_release is None
+    assert loader.provenance.data_release == data_release
+
+
+def test_default_loader_serves_current_and_previous_bands():
+    """v5 (Sep 2026) is the default and v4 (2024) stays available, each with its own source workbook."""
+    data = DataLoader().base_data
+
+    assert list(data.mband_sets) == [5, 4]
+    assert data.mbands == data.mband_sets[5]
+    assert data.provenance == data.provenance_by_band[5]
+    assert data.provenance_by_band[5].upstream_source_file == "hla-mm-and-crf_22oct2026.xlsb"
+    assert data.provenance_by_band[5].upstream_source_file_size_signature == 24_116_185
+    assert data.provenance_by_band[4].upstream_source_file == "hla-mm-and-crf_2024.xlsb"
+    assert data.provenance_by_band[4].data_release == "nhsbt_hla_mm_crf_2024"
+    assert {p.matchability_band_version for p in data.provenance_by_band.values()} == {5, 4}
+
+
+def test_v5_bands_match_the_sep_2026_calculator():
+    """Transcribed from hla-mm-and-crf_22oct2026.xlsb (Calculations sheet, lower Fm bound per score).
+
+    A, B and O are the 2019 bands (v1) again; AB is not: Fm 1 scores 8 and Fm 0 scores 10.
+    """
+    loader = DataLoader()
+    v5, v1 = loader.matchability_bands(5), loader.matchability_bands(1)
+
+    for bg in ("A", "B", "O"):
+        assert v5[bg] == v1[bg]
+    assert v5["O"] == {1: 392, 2: 299, 3: 222, 4: 171, 5: 131, 6: 99, 7: 70, 8: 38, 9: 6, 10: 0}
+    assert v5["AB"] == {1: 20, 2: 14, 3: 10, 4: 7, 5: 4, 6: 2, 8: 1, 10: 0}
+    assert v5["AB"] != v1["AB"]
+
+
+def test_a_band_version_cannot_borrow_another_releases_source():
+    """The 2026 workbook is only verified as the source of v5."""
+    with pytest.raises(ValidationError, match="verified calculator artifact"):
+        DataProvenance(
+            upstream_source_file="hla-mm-and-crf_22oct2026.xlsb",
+            upstream_source_file_size_signature=24_116_185,
+            upstream_source_file_sha256="ff5fc942e9364773aeb99fb8f7345d9e5b21ca6d2de912d8ca65bda6f9bc972f",
+            donor_database="donors.db",
+            donor_database_sha256=DEFAULT_DONOR_DATABASE_SHA256,
+            donor_table="donors_v3",
+            matchability_band_version=4,
+            data_release="nhsbt_hla_mm_crf_22oct2026",
+        )
 
 
 def test_duplicate_matchability_band_rows_are_rejected():

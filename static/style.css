@@ -95,6 +95,15 @@ body {
   color: var(--bs-gray);
   font-weight: lighter;
 }
+
+.band-toggle > i {
+  color: var(--bs-primary);
+}
+
+.band-toggle.band-alt > i {
+  color: var(--bs-warning);
+}
+
 .metric-toggle > i {
   color: var(--bs-success);
 }

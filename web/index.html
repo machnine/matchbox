@@ -51,6 +51,11 @@
         <i>Ad:</i>
         <span id="avd-text">0</span>
       </div>
+      <button class="btn metric-toggle band-toggle toggle-hide" id="id_band-toggle"
+        data-band-vers="{{ mband_sets.keys() | join(',') }}"
+        data-band-ver="{{ mband_default }}" title="Matchability band version (click to switch)">
+        <i class="fst-normal"><small>v{{ mband_default }}</small></i>
+      </button>
       <button class="btn metric-toggle" id="id_dp-toggle">
         <i class="bi bi-toggle2-on"><small>A</small></i>
       </button>

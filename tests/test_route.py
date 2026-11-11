@@ -56,6 +56,40 @@ mock_data.provenance = DataProvenance(
     donor_table="test_donors",
     matchability_band_version=7,
 )
+# a single offered band version, keyed as the loader keys it
+mock_data.mband_sets = {7: mock_mbands}
+mock_data.provenance_by_band = {7: mock_data.provenance}
+
+
+def test_calc_band_ver_selects_bands_and_provenance():
+    """band_ver picks the bands and the provenance; omitted, the first (current) version is used."""
+    two_band_data = MagicMock()
+    for attr in ("donors", "antigens", "mantigens", "antigen_defaults", "broad_split", "dp4_frequencies", "abo_pools"):
+        setattr(two_band_data, attr, getattr(mock_data, attr))
+    alt_bands = {
+        "A": {1: 60, 2: 50, 3: 45, 4: 40, 5: 35, 6: 30, 7: 25, 8: 20, 9: 10, 10: 0},
+        "O": {1: 60, 2: 50, 3: 45, 4: 40, 5: 34, 6: 30, 7: 25, 8: 20, 9: 10, 10: 0},
+    }
+    alt_provenance = mock_data.provenance.model_copy(update={"matchability_band_version": 6})
+    two_band_data.mband_sets = {7: mock_mbands, 6: alt_bands}
+    two_band_data.provenance_by_band = {7: mock_data.provenance, 6: alt_provenance}
+    api.dependency_overrides[load_data] = lambda: two_band_data
+    params = {"bg": "O", "specs": "DR17,B42,B46,DR9", "recip_hla": "B7"}
+
+    try:
+        default = client.get("/calc/", params=params).json()
+        assert default["results"]["favourable"] == 35
+        assert default["results"]["matchability"] == 2  # 35 >= 35
+        assert default["provenance"]["matchability_band_version"] == 7
+
+        alt = client.get("/calc/", params={**params, "band_ver": 6}).json()
+        assert alt["results"]["favourable"] == 35
+        assert alt["results"]["matchability"] == 5  # 35 >= 34
+        assert alt["provenance"]["matchability_band_version"] == 6
+
+        assert client.get("/calc/", params={**params, "band_ver": 1}).status_code == 422
+    finally:
+        api.dependency_overrides.clear()
 
 
 def test_calc_get_endpoint():

@@ -182,9 +182,9 @@ def test_the_band_is_read_against_the_recipients_own_blood_group():
     # Every policy pool happens to lead with the recipient's own group, so a
     # pool-derived index can look right by accident. Score a group B recipient
     # against a pool ordered O first: the band must still come from the B table.
-    # A count of 106 is band 1 against B's thresholds and band 7 against O's.
+    # A count of 106 is band 1 against B's thresholds and band 6 against O's (v5 bands).
     assert next(b for b, v in sorted(BASE.mbands["B"].items()) if 106 >= v) == 1
-    assert next(b for b, v in sorted(BASE.mbands["O"].items()) if 106 >= v) == 7
+    assert next(b for b, v in sorted(BASE.mbands["O"].items()) if 106 >= v) == 6
 
     reordered = calculate("B", ["O", "B"])
     assert reordered.favourable == 106

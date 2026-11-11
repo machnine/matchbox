@@ -53,6 +53,8 @@ mock_data.provenance = DataProvenance(
     donor_table="mock_donors",
     matchability_band_version=8,
 )
+mock_data.mband_sets = {8: mock_data.mbands}
+mock_data.provenance_by_band = {8: mock_data.provenance}
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -74,6 +76,10 @@ def test_html_exposes_selectors_used_by_shared_url_contract():
     assert "antigen-checkbox" in html
     assert html.count("recip-hla-select") == 4
     assert 'id="id_dp-toggle"' in html
+    assert 'id="id_band-toggle"' in html
+    assert 'data-band-vers="8"' in html
+    assert 'data-band-ver="8"' in html  # default bands first
+    assert html.count('class="band-table') == 1
     assert ">A</small>" in html
     assert 'id="id_B7"' in html  # representative antigen checkbox from mock
     assert "mock-source.xlsb" in html
@@ -107,6 +113,7 @@ def test_scripts_js_declares_shared_url_contract():
     assert "params.getAll('specs')" in restore_block
     assert "params.getAll('recip_hla')" in restore_block
     assert "params.get('donor_set')" in restore_block
+    assert "params.get('band_ver')" in restore_block
     # DOM selectors restoreFromQueryParams() depends on
     assert "id_dp-toggle" in restore_block
     assert "recip-hla-select" in restore_block

@@ -81,37 +81,30 @@
   </p>
 
   <hr />
-  <p class="fw-bold">Matchability point bands:</p>
-  <table class="table table-sm text-center table-bordered table-striped">
-    <tr>
-      <th>BG</th>
-      <th>1</th>
-      <th>2</th>
-      <th>3</th>
-      <th>4</th>
-      <th>5</th>
-      <th>6</th>
-      <th>7</th>
-      <th>8</th>
-      <th>9</th>
-      <th>10</th>
-    </tr>
-    {% for bg, val in mbands.items() %}
-    <tr>
-      <td>{{ bg }}</td>
-      <td>{{ val[1] }}</td>
-      <td>{{ val[2] }}</td>
-      <td>{{ val[3] }}</td>
-      <td>{{ val[4] }}</td>
-      <td>{{ val[5] }}</td>
-      <td>{{ val[6] }}</td>
-      <td>{{ val[7] }}</td>
-      <td>{{ val[8] }}</td>
-      <td>{{ val[9] }}</td>
-      <td>{{ val[10] }}</td>
-    </tr>
-    {% endfor %}
-  </table>
+  {% for ver, bands in mband_sets.items() %}
+  <div class="band-table{% if ver != mband_default %} d-none{% endif %}" data-band-ver="{{ ver }}">
+    <p class="fw-bold">
+      Matchability point bands v{{ ver }}{% if ver == mband_default %} (current){% endif %}:
+    </p>
+    <table class="table table-sm text-center table-bordered table-striped">
+      <tr>
+        <th>BG</th>
+        {% for i in range(1, 11) %}<th>{{ i }}</th>{% endfor %}
+      </tr>
+      {% for bg, val in bands.items() %}
+      <tr>
+        <td>{{ bg }}</td>
+        {% for i in range(1, 11) %}<td>{{ val.get(i, "") }}</td>{% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endfor %}
+  <p>
+    Use the <i class="text-primary">v5</i>/<i class="text-warning">v4</i> button in the header to switch between band
+    versions. <b>v5</b> (default) are the bands NHSBT implemented on 29 September 2026, a reversion to the 2019 bands
+    (AB differs slightly). <b>v4</b> are the bands from the 2024 calculator, kept for comparison.
+  </p>
   <p>
     For each blood group, patients are assigned to an
     <i class="text-primary">Mp</i>

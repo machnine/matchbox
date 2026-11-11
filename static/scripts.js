@@ -1,5 +1,5 @@
 // Restore state from URL query params, matching the /calc/ API contract:
-//   ?bg=O&specs=A1,B7,DR4&recip_hla=B44,DR7&donor_set=0
+//   ?bg=O&specs=A1,B7,DR4&recip_hla=B44,DR7&donor_set=0&band_ver=4
 // `specs` and `recip_hla` accept comma-separated values or repeated params.
 const restoreFromQueryParams = () => {
   const params = new URLSearchParams(window.location.search);
@@ -30,6 +30,10 @@ const restoreFromQueryParams = () => {
     const poolOption = document.getElementById(`id_pool-${pool}`);
     if (poolOption) poolOption.checked = true;
   }
+
+  // band_ver: matchability band version; omitted = the default (current) bands.
+  const bandVer = params.get('band_ver');
+  if (bandVer) setBandVer(bandVer);
 
   const splitCSV = (values) =>
     values.flatMap(v => v.split(',')).map(v => v.trim().toUpperCase()).filter(Boolean);
@@ -388,9 +392,10 @@ const calculate = (antigenList) => {
     .filter((value) => value);
   const specs = antigenList.map((ag) => ag.name).join(",");
   const pool = document.querySelector("input[name='pool']:checked").value;
+  const bandVer = document.getElementById("id_band-toggle").dataset.bandVer;
 
   setCalculationPending();
-  fetch(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}&pool=${pool}`, {
+  fetch(`/calc/?bg=${bg}&specs=${specs}&recip_hla=${recip_hla}&donor_set=${dp}&pool=${pool}&band_ver=${bandVer}`, {
     signal: requestController.signal,
   })
     .then((response) => {
@@ -467,6 +472,30 @@ dpToggle.addEventListener("click", function () {
   toggleIcon.classList.toggle(toggleOffIcon);
   toggleIcon.querySelector("small").textContent = toggleIcon.classList.contains(toggleOnIcon) ? "A" : "D";
   document.querySelectorAll(".toggle-hide").forEach((el) => el.classList.toggle("d-none"));
+  recalculate();
+});
+
+// matchability band versions: the toggle cycles through them, the first is the default
+const bandToggle = document.getElementById("id_band-toggle");
+const bandVers = bandToggle.dataset.bandVers.split(",");
+
+// select a band version; returns false if it is not offered
+const setBandVer = (ver) => {
+  const idx = bandVers.indexOf(String(ver));
+  if (idx === -1) return false;
+  bandToggle.dataset.bandVer = bandVers[idx];
+  bandToggle.querySelector("i small").textContent = `v${bandVers[idx]}`;
+  // highlight when not on the default bands
+  bandToggle.classList.toggle("band-alt", idx !== 0);
+  document.querySelectorAll(".band-table").forEach((el) => {
+    el.classList.toggle("d-none", el.dataset.bandVer !== bandVers[idx]);
+  });
+  return true;
+};
+
+bandToggle.addEventListener("click", () => {
+  const idx = bandVers.indexOf(bandToggle.dataset.bandVer);
+  setBandVer(bandVers[(idx + 1) % bandVers.length]);
   recalculate();
 });
 

@@ -26,17 +26,19 @@ EXCLUDED_ANTIGENS = ["A19_S", "CW13"]
 
 DEFAULT_DATABASE_PATH = "data/donors.db"
 DEFAULT_DONOR_TABLE = "donors_v3"
-DEFAULT_MATCHABILITY_BAND_VERSION = 4
-DEFAULT_DONOR_DATABASE_SHA256 = "57eb2019be0cca9c5cd44541580760d8090928b9ff84c993e3b051b7c19e7f98"
-UPSTREAM_SOURCE_FILE = "hla-mm-and-crf_2024.xlsb"
-UPSTREAM_SOURCE_FILE_SIZE_SIGNATURE = 24_099_579
-UPSTREAM_SOURCE_FILE_SHA256 = "66d125adcc94d82236bd6ba719be59b1ff7a11484f9c605c36fb9760dfc69649"
-KNOWN_DATA_RELEASE = "nhsbt_hla_mm_crf_2024"
+# Matchability band versions (matchability_bands.ver) offered by the calculator,
+# the default first. v5: the bands NHSBT implemented on 29 September 2026, a
+# reversion to the 2019 bands (v1) except for AB. v4: the 2024 bands, kept so
+# scores can still be compared against them.
+DEFAULT_MATCHABILITY_BAND_VERSION = 5
+MATCHABILITY_BAND_VERSIONS = (5, 4)
+DEFAULT_DONOR_DATABASE_SHA256 = "d9094a82d3d2eeeeb2a490ffcc0128d40d0845d6155e8584f8d19835a117247d"
 EXPECTED_AB_BAND_KEYS = {
     1: {1, 2, 3, 4, 5, 6, 7, 9},
     2: {1, 2, 3, 4, 5, 6, 8},
     3: {1, 2, 3, 4, 5, 6, 7, 9},
     4: {1, 2, 3, 4, 5, 6, 8, 10},
+    5: {1, 2, 3, 4, 5, 6, 8, 10},
 }
 
 
@@ -81,6 +83,35 @@ class DonorPool(BaseModel):
     donor_groups: Tuple[str, ...] = Field(min_length=1)
 
 
+class UpstreamRelease(BaseModel):
+    """One verified NHSBT calculator workbook and the band version taken from it."""
+
+    model_config = ConfigDict(frozen=True)
+
+    source_file: str = Field(min_length=1)
+    size_signature: int = Field(gt=0)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    band_version: int = Field(gt=0)
+
+
+# The bundled donor database serves both band versions. Both workbooks are built
+# on the same 2024 10,000 donor pool; each is the source of one band version.
+KNOWN_DATA_RELEASES = {
+    "nhsbt_hla_mm_crf_22oct2026": UpstreamRelease(
+        source_file="hla-mm-and-crf_22oct2026.xlsb",
+        size_signature=24_116_185,
+        sha256="ff5fc942e9364773aeb99fb8f7345d9e5b21ca6d2de912d8ca65bda6f9bc972f",
+        band_version=5,
+    ),
+    "nhsbt_hla_mm_crf_2024": UpstreamRelease(
+        source_file="hla-mm-and-crf_2024.xlsb",
+        size_signature=24_099_579,
+        sha256="66d125adcc94d82236bd6ba719be59b1ff7a11484f9c605c36fb9760dfc69649",
+        band_version=4,
+    ),
+}
+
+
 class DataProvenance(BaseModel):
     """Identifiers for the source and derived data used by the calculator."""
 
@@ -93,21 +124,22 @@ class DataProvenance(BaseModel):
     donor_database_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     donor_table: str = Field(min_length=1)
     matchability_band_version: int = Field(gt=0)
-    data_release: Optional[Literal["nhsbt_hla_mm_crf_2024"]] = None
+    data_release: Optional[Literal["nhsbt_hla_mm_crf_22oct2026", "nhsbt_hla_mm_crf_2024"]] = None
 
     @model_validator(mode="after")
     def validate_upstream_source_pair(self):
         """A declared upstream artifact must include both available identifiers."""
         if (self.upstream_source_file is None) != (self.upstream_source_file_size_signature is None):
             raise ValueError("upstream source file and size signature must be supplied together")
-        if self.data_release == KNOWN_DATA_RELEASE:
+        if self.data_release is not None:
+            release = KNOWN_DATA_RELEASES[self.data_release]
             verified_release = (
-                self.upstream_source_file == UPSTREAM_SOURCE_FILE
-                and self.upstream_source_file_size_signature == UPSTREAM_SOURCE_FILE_SIZE_SIGNATURE
-                and self.upstream_source_file_sha256 == UPSTREAM_SOURCE_FILE_SHA256
+                self.upstream_source_file == release.source_file
+                and self.upstream_source_file_size_signature == release.size_signature
+                and self.upstream_source_file_sha256 == release.sha256
                 and self.donor_database_sha256 == DEFAULT_DONOR_DATABASE_SHA256
                 and self.donor_table == DEFAULT_DONOR_TABLE
-                and self.matchability_band_version == DEFAULT_MATCHABILITY_BAND_VERSION
+                and self.matchability_band_version == release.band_version
             )
             if not verified_release:
                 raise ValueError("data release does not match the verified calculator artifact")
@@ -125,28 +157,37 @@ class DataLoader:
         upstream_source_file: str = None,
         upstream_source_file_size_signature: int = None,
         upstream_source_file_sha256: str = None,
+        matchability_vers: Tuple[int, ...] = None,
     ):
         self.db_path = db_path or DEFAULT_DATABASE_PATH
         self.table_name = table_name or DEFAULT_DONOR_TABLE
         self.matchability_ver = matchability_ver or DEFAULT_MATCHABILITY_BAND_VERSION
+        # band versions served, the default first; a loader pinned to one
+        # version only serves that version unless others are asked for
+        offered = matchability_vers or ((matchability_ver,) if matchability_ver else MATCHABILITY_BAND_VERSIONS)
+        self.matchability_vers = (self.matchability_ver,) + tuple(v for v in offered if v != self.matchability_ver)
         self._reject_wal_artifacts()
         database_sha256 = self._file_sha256(self.db_path)
-        source_file, source_size_signature, source_sha256, data_release = self._resolve_upstream_source(
-            database_sha256,
-            upstream_source_file,
-            upstream_source_file_size_signature,
-            upstream_source_file_sha256,
-        )
-        self.provenance = DataProvenance(
-            upstream_source_file=source_file,
-            upstream_source_file_size_signature=source_size_signature,
-            upstream_source_file_sha256=source_sha256,
-            donor_database=Path(self.db_path).name,
-            donor_database_sha256=database_sha256,
-            donor_table=self.table_name,
-            matchability_band_version=self.matchability_ver,
-            data_release=data_release,
-        )
+        self.provenance_by_band = {}
+        for band_ver in self.matchability_vers:
+            source_file, source_size_signature, source_sha256, data_release = self._resolve_upstream_source(
+                database_sha256,
+                upstream_source_file,
+                upstream_source_file_size_signature,
+                upstream_source_file_sha256,
+                band_ver,
+            )
+            self.provenance_by_band[band_ver] = DataProvenance(
+                upstream_source_file=source_file,
+                upstream_source_file_size_signature=source_size_signature,
+                upstream_source_file_sha256=source_sha256,
+                donor_database=Path(self.db_path).name,
+                donor_database_sha256=database_sha256,
+                donor_table=self.table_name,
+                matchability_band_version=band_ver,
+                data_release=data_release,
+            )
+        self.provenance = self.provenance_by_band[self.matchability_ver]
         database_uri = f"{Path(self.db_path).resolve().as_uri()}?mode=ro"
         self.conn = sqlite3.connect(database_uri, uri=True)
         journal_mode = self.conn.execute("PRAGMA journal_mode").fetchone()
@@ -178,23 +219,17 @@ class DataLoader:
         source_file: Optional[str],
         source_size_signature: Optional[int],
         source_sha256: Optional[str] = None,
+        band_ver: Optional[int] = None,
     ) -> Tuple[Optional[str], Optional[int], Optional[str], Optional[str]]:
         """Bind the declared upstream artifact to the known derived database release."""
         if (source_file is None) != (source_size_signature is None):
             raise ValueError("upstream source file and size signature must be supplied together")
 
-        is_known_release = (
-            database_sha256 == DEFAULT_DONOR_DATABASE_SHA256
-            and self.table_name == DEFAULT_DONOR_TABLE
-            and self.matchability_ver == DEFAULT_MATCHABILITY_BAND_VERSION
-        )
-        if is_known_release:
-            return (
-                UPSTREAM_SOURCE_FILE,
-                UPSTREAM_SOURCE_FILE_SIZE_SIGNATURE,
-                UPSTREAM_SOURCE_FILE_SHA256,
-                KNOWN_DATA_RELEASE,
-            )
+        band_ver = band_ver or self.matchability_ver
+        if database_sha256 == DEFAULT_DONOR_DATABASE_SHA256 and self.table_name == DEFAULT_DONOR_TABLE:
+            for data_release, release in KNOWN_DATA_RELEASES.items():
+                if release.band_version == band_ver:
+                    return release.source_file, release.size_signature, release.sha256, data_release
         if source_file is not None:
             return source_file, source_size_signature, source_sha256, None
         return None, None, None, None
@@ -205,13 +240,14 @@ class DataLoader:
         if any(sidecar.exists() for sidecar in sidecars):
             raise DataLoadError("Donor database has WAL sidecar files and cannot be fingerprinted as one artifact")
 
-    def _validate_matchability_bands(self, bands: Dict[str, Dict[int, int]]) -> None:
+    def _validate_matchability_bands(self, bands: Dict[str, Dict[int, int]], ver: Optional[int] = None) -> None:
         """Reject missing or malformed requested band versions before serving data."""
+        ver = ver or self.matchability_ver
         required_blood_groups = {"A", "B", "O", "AB"}
         common_keys = set(range(1, 11))
         valid = set(bands) == required_blood_groups
         for blood_group, thresholds in bands.items():
-            expected_keys = EXPECTED_AB_BAND_KEYS.get(self.matchability_ver) if blood_group == "AB" else common_keys
+            expected_keys = EXPECTED_AB_BAND_KEYS.get(ver) if blood_group == "AB" else common_keys
             keys = set(thresholds)
             if not keys:
                 valid = False
@@ -230,7 +266,7 @@ class DataLoader:
             valid = valid and all(left >= right for left, right in zip(ordered, ordered[1:]))
 
         if not valid:
-            raise DataLoadError(f"Invalid or missing matchability band version: {self.matchability_ver}")
+            raise DataLoadError(f"Invalid or missing matchability band version: {ver}")
 
     def _load_table(self, table_name: str, conditions: str = "") -> pd.DataFrame:
         """load a table from sqlite database"""
@@ -283,19 +319,21 @@ class DataLoader:
                     antigen_dict[locus].extend(sorted(alleles_by_broad.get(col, [])))
         return antigen_dict
 
-    def matchability_bands(self) -> Dict[str, Dict[int, int]]:
-        """load matchability bands"""
-        m_bands = self._load_table("matchability_bands", f"where ver={self.matchability_ver}")
+    def matchability_bands(self, ver: Optional[int] = None) -> Dict[str, Dict[int, int]]:
+        """load matchability bands for one band version (default: the loader's)"""
+        ver = int(ver or self.matchability_ver)
+        m_bands = self._load_table("matchability_bands", f"where ver={ver}")
         if (
             m_bands.empty
             or not {"bg", "ver", "sizes"} <= set(m_bands.columns)
             or m_bands["bg"].duplicated().any()
             or set(m_bands["bg"]) != {"A", "B", "O", "AB"}
         ):
-            raise DataLoadError(f"Invalid matchability band rows for version: {self.matchability_ver}")
+            raise DataLoadError(f"Invalid matchability band rows for version: {ver}")
         bands_dict = (
             m_bands.set_index("bg")
-            .drop(columns=["ver", "sizes"])
+            # year is a reference for people reading the table, not a band
+            .drop(columns=["ver", "sizes", "year"], errors="ignore")
             .apply(lambda row: row.dropna().to_dict(), axis=1)
             .to_dict()
         )
@@ -409,8 +447,10 @@ class DataLoader:
         """get data"""
         dp4_frequencies = self.dp4_allele_frequencies()
         antigens = self.antigens(dp4_frequencies)
-        matchability_bands = self.matchability_bands()
-        self._validate_matchability_bands(matchability_bands)
+        mband_sets = {}
+        for band_ver in self.matchability_vers:
+            mband_sets[band_ver] = self.matchability_bands(band_ver)
+            self._validate_matchability_bands(mband_sets[band_ver], band_ver)
         matchability_antigens = self.matchability_antigens()
         antigen_defaults = self.antigen_defaults()
         broad_split = self.broad_split_mapping()
@@ -424,13 +464,15 @@ class DataLoader:
         return LoadedData(
             donors=self.donors,
             antigens=antigens,
-            mbands=matchability_bands,
+            mbands=mband_sets[self.matchability_ver],
+            mband_sets=mband_sets,
             mantigens=matchability_antigens,
             antigen_defaults=antigen_defaults,
             broad_split=broad_split,
             dp4_frequencies=dp4_frequencies,
             abo_pools=abo_pools,
             provenance=self.provenance,
+            provenance_by_band=self.provenance_by_band,
         )
 
 
@@ -439,13 +481,15 @@ class LoadedData(BaseModel):
 
     donors: Any
     antigens: Dict[str, List[str]]
-    mbands: Dict[str, Dict[int, int]]
+    mbands: Dict[str, Dict[int, int]]  # the default band version
+    mband_sets: Dict[int, Dict[str, Dict[int, int]]]  # every offered version, the default first
     mantigens: Dict[str, List[str]]
     antigen_defaults: Dict[str, str]
     broad_split: Dict[str, Dict[str, Any]]
     dp4_frequencies: Dict[str, DP4AlleleFrequency]
     abo_pools: Dict[Tuple[str, str], DonorPool]
-    provenance: DataProvenance
+    provenance: DataProvenance  # for the default band version
+    provenance_by_band: Dict[int, DataProvenance]
 
 
 BaseData = DataLoader().base_data

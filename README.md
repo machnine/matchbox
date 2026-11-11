@@ -8,6 +8,11 @@ the verified data-release identifier, derived donor database filename, SHA-256 f
 matchability-band version. The fingerprint identifies the exact derived data artifact even though upstream source
 versioning is opaque. Custom artifacts do not inherit the bundled release identifier automatically.
 
+The bundled database serves two matchability band versions, each verified against its own upstream workbook:
+`v5` from `hla-mm-and-crf_22oct2026.xlsb` (release `nhsbt_hla_mm_crf_22oct2026`, the default) and `v4` from
+`hla-mm-and-crf_2024.xlsb` (release `nhsbt_hla_mm_crf_2024`). Both workbooks use the same 2024 10,000 donor pool. A
+result's `provenance` names the band version and workbook it was scored with.
+
 ## Caclulations
 ### Sensitisation: 
 - *cRF* = calculated Reaction Frequency
@@ -34,8 +39,8 @@ matchability-10 rule is circular. Note B and AB recipients are offered non-ident
 `identical` is the only way to reproduce the value NHSBT holds for them.
 
 **The matchability score is not comparable over a wider pool.** It is a decile rank derived from blood group identical
-counts, so a count drawn from a larger pool reads low against it - a group AB patient whose true band is 6 reads as
-band 1. The response carries `matchability_status`, which is `banded` when the pool is blood group identical and
+counts, so a count drawn from a larger pool reads low against it - a group AB patient whose true band is 5 reads as
+band 1 (v5 bands). The response carries `matchability_status`, which is `banded` when the pool is blood group identical and
 `not_comparable_wider_pool` otherwise; the same status is written to exported profiles. Re-deriving honest bands needs
 every patient's accessible count at once, which a single-patient calculator cannot do.
 
@@ -60,17 +65,31 @@ solid organ donors.
 
 ### Matchability:
 - *D<sub>fm</sub>* = the number of ABO identical, HLA-compatible and favourably matched donors 
-- Assign a matchability point according to the following matchability banding:
-  
+- Assign a matchability point according to the matchability banding. Since 29 September 2026 NHSBT uses the v5
+  bands (a reversion to the 2019 bands; AB differs slightly). The previous v4 bands can still be selected with the
+  band toggle in the header or `band_ver=4` on `/calc/`.
+
+**v5 (default, `band_ver=5`, implemented 29 Sep 2026)**
+
+| BG  | 1   | 2   | 3   | 4   | 5   | 6   | 7   | 8   | 9   | 10  |
+|----|----|----|----|----|----|----|----|----|----|----|
+| A   | 333 | 255 | 196 | 148 | 113 | 83  | 47  | 14  | 2   | 0   |
+| B   | 73  | 54  | 41  | 33  | 27  | 21  | 15  | 8   | 2   | 0   |
+| O   | 392 | 299 | 222 | 171 | 131 | 99  | 70  | 38  | 6   | 0   |
+| AB  | 20  | 14  | 10  | 7   | 4   | 2   |     | 1   |     | 0   |
+
+**v4 (`band_ver=4`, 2024 calculator)**
 
 | BG  | 1   | 2   | 3   | 4   | 5   | 6   | 7   | 8   | 9   | 10  |
 |----|----|----|----|----|----|----|----|----|----|----|
 | A   | 360 | 279 | 228 | 178 | 146 | 115 | 87  | 63  | 19  | 0   |
 | B   | 70  | 54  | 42  | 35  | 29  | 24  | 19  | 14  | 6   | 0   |
 | O   | 405 | 311 | 247 | 193 | 157 | 128 | 103 | 74  | 34  | 0   |
-| AB | 23  | 14  | 10  | 8   | 6   | 3   |     | 2   |     | 0   |
+| AB  | 23  | 14  | 10  | 8   | 6   | 3   |     | 2   |     | 0   |
 
-NB: The bandings changes at each release of the [official calculator](https://www.odt.nhs.uk/transplantation/tools-policies-and-guidance/calculators/)
+NB: The bandings changes at each release of the [official calculator](https://www.odt.nhs.uk/transplantation/tools-policies-and-guidance/calculators/).
+All versions are kept in the `matchability_bands` table (`ver`, `year` for reference, `sizes` = file size signature in
+KiB); the versions served are set by `MATCHABILITY_BAND_VERSIONS` in `api/data.py` (first = default).
 
 ## How to deploy this app
 ### Docker image from Dockerfile
@@ -117,6 +136,8 @@ Set `MATCHBOX_CALC_RATE_LIMIT` to another SlowAPI limit string (for example,
   groups allocation policy offers). The response reports `pool`, `pool_groups`, `pool_size` and `matchability_status`
 - **recip_hla**: recipient HLA-B and DR type, e.g. "B7,B8,DR9". Recognised split inputs are converted to the broad
   specificities used by the calculation; the response reports both `recip_hla_used` and `recip_hla_conversions`.
+- **band_ver**: matchability band version - `5` (default, Sep 2026 bands) or `4` (2024 bands). Any other value is
+  rejected with 422; `provenance.matchability_band_version` and `provenance.data_release` report the one used
 
 The response includes `donor_set`, `donor_cohort`, `calculation_mode`, `calculated_at`, and `provenance` alongside the
 existing raw result fields. Raw DP-subset matchability values remain in the API for compatibility. Saved browser profiles

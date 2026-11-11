@@ -63,6 +63,8 @@ async def index(request: Request, data=Depends(load_data)):
         "antigens": data.antigens,
         "mantigens": data.mantigens,
         "mbands": data.mbands,
+        "mband_sets": data.mband_sets,
+        "mband_default": next(iter(data.mband_sets)),
         "dp4_frequencies": data.dp4_frequencies,
         "provenance": data.provenance,
         "tracking_id": tracking_id,
@@ -88,8 +90,13 @@ async def calc(
     pool: Literal["identical", "tier_b", "tier_a"] = Query(
         "identical", description="Donor pool: blood group identical [default], or a policy tier"
     ),
+    band_ver: Optional[int] = Query(None, description="Matchability band version [default: the current bands]"),
 ):
     """calculate matchability"""
+    if band_ver is None:
+        band_ver = next(iter(data.mband_sets))
+    if band_ver not in data.mband_sets:
+        raise HTTPException(status_code=422, detail=f"band_ver must be one of {list(data.mband_sets)}")
     donors = data.donors[donor_set]
     total = len(donors)
     pool_groups = (bg,) if pool == "identical" else data.abo_pools[(bg, pool)].donor_groups
@@ -121,7 +128,7 @@ async def calc(
         recipient_bdr=recip_hla_dict,
         hla_bdr=data.mantigens,
         ag_defaults=data.antigen_defaults,
-        matchability_bands=data.mbands,
+        matchability_bands=data.mband_sets[band_ver],
         dp4_weights={ag: (freq.broad, freq.carrier_fraction) for ag, freq in data.dp4_frequencies.items()},
         pool_groups=pool_groups,
     )
@@ -139,7 +146,7 @@ async def calc(
         "matchability_status": MATCHABILITY_NOT_COMPARABLE if widened else MATCHABILITY_BANDED,
         **calculation_context,
         "calculated_at": datetime.now(UTC),
-        "provenance": data.provenance,
+        "provenance": data.provenance_by_band[band_ver],
         "recip_hla": recip_hla,
         "recip_hla_used": recip_hla_list or None,
         "recip_hla_conversions": recip_hla_conversions,
