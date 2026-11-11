@@ -140,6 +140,8 @@ body {
 /* Blood group radio buttons styling */
 .blood-group-option {
   position: relative;
+  /* Bootstrap's .form-check reserves 1.5em for a radio we hide; halve it */
+  padding-left: 0.75em;
 }
 
 .blood-group-option input[type="radio"] {
@@ -190,7 +192,8 @@ body {
 }
 
 .pool-option-label {
-  padding: 0.2rem 0.6rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.9rem;
   border: 2px solid #dee2e6;
   border-left-width: 0;
   cursor: pointer;
@@ -237,15 +240,22 @@ body {
 
 /* consistent width for recipient HLA select dropdowns */
 .recip-hla-select {
-  /* fits the longest option (DR103): Bootstrap reserves 2.25rem for the arrow,
+  /* fits DR13 (DR103 may be slightly covered): Bootstrap reserves 2.25rem for the arrow,
      which left too little room and clipped e.g. DR13 to "DR1" */
-  width: 84px;
-  min-width: 84px;
-  padding-right: 1.5rem;
-  background-position: right 0.4rem center;
-  background-size: 12px 10px;
+  width: 66px;
+  min-width: 66px;
+  padding-left: 0.4rem;
+  padding-right: 1.25rem;
+  background-position: right 0.3rem center;
+  background-size: 10px 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   transition: box-shadow 0.2s ease;
+}
+
+/* HLA-B options are at most three characters (e.g. B12) */
+.recip-hla-select.crf-bgcolor-b {
+  width: 58px;
+  min-width: 58px;
 }
 
 .recip-hla-select:hover {
